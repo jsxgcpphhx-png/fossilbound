@@ -14,7 +14,8 @@ import { getTemporaryStatusLabel } from '../data/battle/temporaryBattleStatuses'
 import { TEMPORARY_MOVE_LIKE_ENTRIES } from '../data/battle/temporaryMoveLikeEntries';
 import { EARLY_GAME_DINOSAURS, type DinosaurDefinition } from '../data/dinosaurs';
 import type { EncounterPreview } from '../data/encounters';
-import { getKnownDinosaurName, loadPlayerState, updatePlayerPosition } from '../data/playerState';
+import { getInventoryCategoryLabel, getInventoryEntries, type InventoryEntry } from '../data/inventory';
+import { addTemporaryDebugCreatureToParty, getKnownDinosaurName, loadPlayerState, updatePlayerPosition } from '../data/playerState';
 import type { TilePosition } from '../types/grid';
 
 type MainBattleMenuOption = 'Observe' | 'Actions' | 'Field Pack' | 'Flee';
@@ -25,12 +26,12 @@ interface BattleSceneData extends EncounterPreview {
   returnPosition?: TilePosition;
 }
 
-// Milestone 5 developer note:
-// This scene consumes temporary, data-driven battle scaffolding. It intentionally
-// avoids final damage, attack moves, turn order, capture, type mechanics, stat
-// formulas, item effects, progression, and balance assumptions. Current actions,
-// HP/status displays, and move-like entries are placeholders that should be
-// replaced by the future roster/type/move/battle system without rewriting this UI.
+// Milestone 6 developer note:
+// This scene consumes temporary, data-driven battle and inventory scaffolding. It
+// intentionally avoids final damage, turn order, capture formulas, type
+// mechanics, stats, item balance, economy, and acquisition rules. Field Pack
+// entries only route to placeholder text so future capture/research/healing/key
+// item systems can replace these hooks without rewriting the UI.
 export class BattleScene extends Phaser.Scene {
   private encounter?: BattleSceneData;
   private participants?: { player: BattleParticipant; wild: BattleParticipant };
@@ -272,10 +273,10 @@ export class BattleScene extends Phaser.Scene {
     });
     this.add.rectangle(504, 426, 198, 88, 0xefe2bf, 0.96).setStrokeStyle(3, 0x6f4b2f);
 
-    this.menuTexts = MAIN_MENU_OPTIONS.map((option, index) => this.add.text(424 + (index % 2) * 92, 400 + Math.floor(index / 2) * 34, option, {
+    this.menuTexts = Array.from({ length: 8 }, (_, index) => this.add.text(424 + (index % 2) * 96, 394 + Math.floor(index / 2) * 22, '', {
       color: '#2d4632',
       fontFamily: 'monospace',
-      fontSize: '15px',
+      fontSize: '11px',
       fontStyle: 'bold'
     }));
     this.updateMenuLabels();
@@ -342,7 +343,7 @@ export class BattleScene extends Phaser.Scene {
     }
 
     if (this.menuState.mode === 'field-pack') {
-      return ['Back'];
+      return this.getFieldPackMenuLabels();
     }
 
     return MAIN_MENU_OPTIONS;
@@ -367,8 +368,13 @@ export class BattleScene extends Phaser.Scene {
       return;
     }
 
-    if (this.menuState.mode === 'observe' || this.menuState.mode === 'field-pack') {
+    if (this.menuState.mode === 'observe') {
       this.openMainMenu();
+      return;
+    }
+
+    if (this.menuState.mode === 'field-pack') {
+      this.chooseFieldPackOption();
       return;
     }
 
@@ -428,13 +434,103 @@ export class BattleScene extends Phaser.Scene {
   }
 
   private openFieldPackPanel(): void {
+    const fieldPackEntries = this.getFieldPackEntries();
+
     this.menuState = { mode: 'field-pack', selectedIndex: 0 };
     this.drawPanel(TEMPORARY_BATTLE_CONFIG.fieldPackTitle, [
-      'No usable field items are implemented in this battle scaffold.',
-      'Capture, healing, and inventory action rules remain future design work.'
+      ...fieldPackEntries.map((entry) => `${getInventoryCategoryLabel(entry.category)} · ${entry.displayName} x${entry.quantity}`),
+      'DEV SCAFFOLD ONLY · Debug Add Creature is not final capture.'
     ]);
     this.queueMessages(TEMPORARY_BATTLE_CONFIG.fieldPackLines);
     this.updateMenuLabels();
+  }
+
+  private getFieldPackEntries(): InventoryEntry[] {
+    return getInventoryEntries(loadPlayerState().inventory);
+  }
+
+  private getFieldPackMenuLabels(): string[] {
+    return [
+      ...this.getFieldPackEntries().map((entry) => `${entry.displayName} x${entry.quantity}`),
+      'DEV: Add Creature',
+      'Back'
+    ];
+  }
+
+  private chooseFieldPackOption(): void {
+    const entries = this.getFieldPackEntries();
+    const selectedIndex = this.menuState.selectedIndex;
+
+    if (selectedIndex < entries.length) {
+      this.useTemporaryFieldPackItem(entries[selectedIndex]);
+      return;
+    }
+
+    if (selectedIndex === entries.length) {
+      this.debugAddCreatureFromEncounter();
+      return;
+    }
+
+    this.openMainMenu();
+  }
+
+  private useTemporaryFieldPackItem(item: InventoryEntry): void {
+    const wildCreature = this.participants?.wild.creature;
+
+    switch (item.temporaryEffectType) {
+      case 'temporary-survey-notes':
+        this.drawPanel(item.displayName, [
+          item.description,
+          wildCreature?.displayName ?? TEMPORARY_BATTLE_CONFIG.defaultWildCreatureName,
+          wildCreature?.description ?? 'Additional creature notes are not available for this placeholder encounter.',
+          wildCreature?.artNotes ? `Additional notes: ${wildCreature.artNotes}` : 'Additional creature notes are not available yet.'
+        ]);
+        this.queueMessages(['Survey Lens displayed additional creature notes if available.']);
+        return;
+      case 'temporary-healing-placeholder':
+        this.drawTemporaryItemMessage(item, 'Healing is not implemented yet');
+        return;
+      case 'temporary-field-recovery-placeholder':
+        this.drawTemporaryItemMessage(item, 'Field recovery is not implemented yet');
+        return;
+      case 'temporary-key-item-placeholder':
+        this.drawTemporaryItemMessage(item, 'This key item is not used here');
+        return;
+      case 'temporary-creature-acquisition':
+        this.drawTemporaryItemMessage(item, 'Creature acquisition rules are not finalized yet');
+        return;
+    }
+  }
+
+  private drawTemporaryItemMessage(item: InventoryEntry, useText: string): void {
+    this.drawPanel(item.displayName, [
+      `${getInventoryCategoryLabel(item.category)} · quantity ${item.quantity}`,
+      item.description,
+      useText,
+      'Temporary Field Pack behavior only; no final item rules, balance, economy, or capture logic.'
+    ]);
+    this.queueMessages([useText]);
+  }
+
+  private debugAddCreatureFromEncounter(): void {
+    const dinosaurId = this.participants?.wild.creature.dinosaurId;
+
+    if (!dinosaurId) {
+      this.drawPanel('DEV: Add Creature', [
+        'DEV SCAFFOLD ONLY — not final capture.',
+        'The current placeholder encounter has no dinosaur id to add.'
+      ]);
+      this.queueMessages(['Debug add creature scaffold could not find a current wild creature.']);
+      return;
+    }
+
+    const result = addTemporaryDebugCreatureToParty(dinosaurId);
+    this.drawPanel('DEV: Add Creature', [
+      'DEV SCAFFOLD ONLY — not final capture.',
+      result.message,
+      'Final acquisition rules, storage, bonding, capture tools, probabilities, and progression will be designed later.'
+    ]);
+    this.queueMessages([result.message]);
   }
 
   private selectTemporaryAction(action: BattleAction): void {

@@ -10,6 +10,6 @@ export function savePlayerTile(playerTile: TilePosition): void {
   savePlayerState({ ...state, currentPosition: playerTile });
 }
 
-export function savePlayerMapTile(currentMap: 'AmberleafTownScene' | 'LabScene', playerTile: TilePosition): void {
+export function savePlayerMapTile(currentMap: 'AmberleafTownScene' | 'LabScene' | 'FernTrailScene', playerTile: TilePosition): void {
   updatePlayerPosition(currentMap, playerTile);
 }

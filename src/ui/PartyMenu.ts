@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { getInventoryCategoryLabel, getInventoryEntries } from '../data/inventory';
 import { getKnownDinosaurName, loadPlayerState } from '../data/playerState';
 
 export class PartyMenu {
@@ -45,9 +46,12 @@ export class PartyMenu {
     const partyLines = state.partyCreatures.length > 0
       ? state.partyCreatures.map((creature, index) => `${index + 1}. ${getKnownDinosaurName(creature.dinosaurId)}\n   placeholder field companion`).join('\n')
       : 'No placeholder creature selected yet.\nVisit the lab table to test the data-driven selection flow.';
+    const inventoryLines = getInventoryEntries(state.inventory)
+      .map((item) => `${item.displayName} x${item.quantity} (${getInventoryCategoryLabel(item.category)})`)
+      .join('\n');
 
     this.open = true;
-    this.bodyText.setText(`Researcher: ${state.playerName}\n\n${partyLines}\n\nInventory: placeholder satchel\nStory flags: ${Object.keys(state.storyFlags).length}`);
+    this.bodyText.setText(`Researcher: ${state.playerName}\n\n${partyLines}\n\nField Pack:\n${inventoryLines}\n\nStory flags: ${Object.keys(state.storyFlags).length}`);
     this.group.setVisible(true);
   }
 

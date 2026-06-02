@@ -18,14 +18,14 @@ export interface TemporaryBattleConfig {
 export const TEMPORARY_BATTLE_CONFIG: TemporaryBattleConfig = {
   openingMessages: [
     'A prehistoric creature appeared!',
-    'Milestone 5 battle data scaffolding is active.'
+    'Milestone 6 Field Pack inventory scaffolding is active.'
   ],
   defaultPlayerCreatureName: 'Field Companion',
   defaultWildCreatureName: 'Unknown Creature',
   fieldPackTitle: 'Field Pack',
   fieldPackLines: [
     'Field Pack placeholder opened.',
-    'Inventory actions, capture rules, and item effects will be designed later.'
+    'Item effects, capture/acquisition rules, balance, and economy will be designed later.'
   ],
   placeholderHp: {
     player: {
