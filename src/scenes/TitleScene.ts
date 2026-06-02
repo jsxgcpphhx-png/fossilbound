@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { EARLY_GAME_DINOSAURS } from '../data/dinosaurs';
 
 export class TitleScene extends Phaser.Scene {
   constructor() {
@@ -6,12 +7,20 @@ export class TitleScene extends Phaser.Scene {
   }
 
   create(): void {
-    this.cameras.main.setBackgroundColor('#17251d');
+    this.cameras.main.setBackgroundColor('#1f2f24');
 
-    this.add.circle(320, 178, 78, 0xd99c3b, 1);
-    this.add.circle(320, 178, 52, 0xf8f3df, 1);
-    this.add.rectangle(320, 178, 120, 18, 0x17251d, 1).setRotation(-0.3);
-    this.add.rectangle(320, 178, 120, 18, 0x17251d, 1).setRotation(0.3);
+    this.add.rectangle(320, 240, 640, 480, 0x2d4632, 1);
+    this.add.circle(320, 178, 82, 0xd99c3b, 1);
+    this.add.circle(320, 178, 55, 0xf8f3df, 1);
+    this.add.rectangle(320, 178, 126, 18, 0x1f2f24, 1).setRotation(-0.3);
+    this.add.rectangle(320, 178, 126, 18, 0x1f2f24, 1).setRotation(0.3);
+    this.add.rectangle(320, 214, 140, 12, 0x8a6a3d, 0.5);
+    this.add.circle(274, 188, 18, 0x243126, 1);
+    this.add.rectangle(300, 188, 62, 24, 0x243126, 1);
+    this.add.rectangle(346, 180, 38, 16, 0x243126, 1);
+    this.add.rectangle(363, 166, 8, 24, 0x243126, 1).setRotation(0.55);
+    this.add.rectangle(288, 206, 9, 25, 0x243126, 1);
+    this.add.rectangle(333, 206, 9, 25, 0x243126, 1);
 
     this.add.text(320, 88, 'FOSSILBOUND', {
       align: 'center',
@@ -19,11 +28,11 @@ export class TitleScene extends Phaser.Scene {
       fontFamily: 'monospace',
       fontSize: '48px',
       fontStyle: 'bold',
-      stroke: '#6c7f43',
+      stroke: '#8a6a3d',
       strokeThickness: 6
     }).setOrigin(0.5);
 
-    this.add.text(320, 258, 'Milestone 1 Prototype', {
+    this.add.text(320, 258, 'Visual Pipeline Prototype', {
       color: '#d99c3b',
       fontFamily: 'monospace',
       fontSize: '22px'
@@ -43,11 +52,20 @@ export class TitleScene extends Phaser.Scene {
       repeat: -1
     });
 
-    this.add.text(320, 410, 'Original dinosaurs, town, story, UI, and placeholder art.', {
+    const rosterPreview = EARLY_GAME_DINOSAURS.map((dinosaur) => dinosaur.displayName).join(' • ');
+
+    this.add.text(320, 400, 'Naturalistic prehistoric creatures; placeholder silhouettes only.', {
+      align: 'center',
+      color: '#f0c878',
+      fontFamily: 'monospace',
+      fontSize: '14px'
+    }).setOrigin(0.5);
+
+    this.add.text(320, 424, rosterPreview, {
       align: 'center',
       color: '#aebf7a',
       fontFamily: 'monospace',
-      fontSize: '14px'
+      fontSize: '11px'
     }).setOrigin(0.5);
 
     this.input.keyboard?.once('keydown-ENTER', () => this.startGame());
