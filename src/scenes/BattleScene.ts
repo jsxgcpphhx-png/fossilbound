@@ -1,36 +1,44 @@
 import Phaser from 'phaser';
+import {
+  type BattleAction,
+  type BattleCreatureInstance,
+  type BattleMenuState,
+  type BattleMessageQueue,
+  type BattleParticipant,
+  type BattleParticipantRole,
+  type PlaceholderHpStatusDisplay
+} from '../data/battle/battleModel';
+import { TEMPORARY_BATTLE_ACTIONS } from '../data/battle/temporaryBattleActions';
+import { TEMPORARY_BATTLE_CONFIG } from '../data/battle/temporaryBattleConfig';
+import { getTemporaryStatusLabel } from '../data/battle/temporaryBattleStatuses';
+import { TEMPORARY_MOVE_LIKE_ENTRIES } from '../data/battle/temporaryMoveLikeEntries';
 import { EARLY_GAME_DINOSAURS, type DinosaurDefinition } from '../data/dinosaurs';
 import type { EncounterPreview } from '../data/encounters';
 import { getKnownDinosaurName, loadPlayerState, updatePlayerPosition } from '../data/playerState';
 import type { TilePosition } from '../types/grid';
 
-type BattleMenuOption = 'Observe' | 'Actions' | 'Field Pack' | 'Flee';
+type MainBattleMenuOption = 'Observe' | 'Actions' | 'Field Pack' | 'Flee';
 
-const MENU_OPTIONS: BattleMenuOption[] = ['Observe', 'Actions', 'Field Pack', 'Flee'];
-const BATTLE_MESSAGE = 'A prehistoric creature appeared!';
-const NOT_IMPLEMENTED_MESSAGE = 'Not implemented yet. Final battle rules will be designed later.';
+const MAIN_MENU_OPTIONS: MainBattleMenuOption[] = ['Observe', 'Actions', 'Field Pack', 'Flee'];
 
 interface BattleSceneData extends EncounterPreview {
   returnPosition?: TilePosition;
 }
 
-interface BattleActorViewModel {
-  dinosaurId?: string;
-  displayName: string;
-  spritePath?: string;
-  description?: string;
-  role: 'wild' | 'player';
-}
-
-// Milestone 4 developer note:
-// This scene is only a temporary battle-screen shell. It intentionally avoids
-// damage, attack moves, turn order, capture, final type mechanics, stat formulas,
-// and balance assumptions so the future battle system can remain data-driven.
+// Milestone 5 developer note:
+// This scene consumes temporary, data-driven battle scaffolding. It intentionally
+// avoids final damage, attack moves, turn order, capture, type mechanics, stat
+// formulas, item effects, progression, and balance assumptions. Current actions,
+// HP/status displays, and move-like entries are placeholders that should be
+// replaced by the future roster/type/move/battle system without rewriting this UI.
 export class BattleScene extends Phaser.Scene {
   private encounter?: BattleSceneData;
-  private selectedMenuIndex = 0;
+  private participants?: { player: BattleParticipant; wild: BattleParticipant };
+  private menuState: BattleMenuState = { mode: 'main', selectedIndex: 0 };
   private menuTexts: Phaser.GameObjects.Text[] = [];
+  private panelObjects: Phaser.GameObjects.GameObject[] = [];
   private messageText?: Phaser.GameObjects.Text;
+  private messageQueue: BattleMessageQueue = { pendingLines: [] };
   private menuKeys?: Phaser.Input.Keyboard.Key[];
   private actionKeys?: Phaser.Input.Keyboard.Key[];
 
@@ -40,9 +48,12 @@ export class BattleScene extends Phaser.Scene {
 
   init(data: BattleSceneData): void {
     this.encounter = data;
-    this.selectedMenuIndex = 0;
+    this.participants = undefined;
+    this.menuState = { mode: 'main', selectedIndex: 0 };
     this.menuTexts = [];
+    this.panelObjects = [];
     this.messageText = undefined;
+    this.messageQueue = { pendingLines: [...TEMPORARY_BATTLE_CONFIG.openingMessages] };
   }
 
   create(): void {
@@ -53,15 +64,18 @@ export class BattleScene extends Phaser.Scene {
       return;
     }
 
-    const wildActor = this.createWildActor(this.encounter);
-    const playerActor = this.createPlayerActor();
+    this.participants = {
+      wild: this.createWildParticipant(this.encounter),
+      player: this.createPlayerParticipant()
+    };
 
     this.drawBackground();
-    this.drawActorArea(wildActor, 456, 134, true);
-    this.drawActorArea(playerActor, 164, 276, false);
-    this.drawStatusBox(wildActor.displayName, 46, 54, 'Wild placeholder');
-    this.drawStatusBox(playerActor.displayName, 360, 232, 'Party placeholder');
+    this.drawActorArea(this.participants.wild, 456, 134, true);
+    this.drawActorArea(this.participants.player, 164, 276, false);
+    this.drawStatusBox(this.participants.wild.creature, 46, 54);
+    this.drawStatusBox(this.participants.player.creature, 360, 232);
     this.drawMessageAndMenu();
+    this.showNextMessage();
     this.registerControls();
   }
 
@@ -79,50 +93,87 @@ export class BattleScene extends Phaser.Scene {
     }
 
     if (Phaser.Input.Keyboard.JustDown(this.actionKeys[0])) {
-      this.chooseSelectedOption();
+      this.confirmOrAdvanceMessage();
     }
 
-    if (Phaser.Input.Keyboard.JustDown(this.actionKeys[1]) || Phaser.Input.Keyboard.JustDown(this.actionKeys[2])) {
+    if (Phaser.Input.Keyboard.JustDown(this.actionKeys[1])) {
       this.flee();
     }
 
+    if (Phaser.Input.Keyboard.JustDown(this.actionKeys[2])) {
+      this.backOrFlee();
+    }
+
     if (Phaser.Input.Keyboard.JustDown(this.actionKeys[3])) {
-      this.showObserveText();
+      this.openObservePanel();
     }
 
     if (Phaser.Input.Keyboard.JustDown(this.actionKeys[4])) {
-      this.showPlaceholderText('Actions');
+      this.openActionsPanel();
     }
 
     if (Phaser.Input.Keyboard.JustDown(this.actionKeys[5])) {
-      this.showPlaceholderText('Field Pack');
+      this.openFieldPackPanel();
     }
   }
 
-  private createWildActor(encounter: BattleSceneData): BattleActorViewModel {
+  private createWildParticipant(encounter: BattleSceneData): BattleParticipant {
     const dinosaur = this.getDinosaur(encounter.dinosaurId);
 
     return {
-      dinosaurId: encounter.dinosaurId,
-      displayName: dinosaur?.displayName ?? encounter.creatureName,
-      spritePath: dinosaur?.battleSpritePath ?? encounter.spritePath,
-      description: dinosaur?.shortDescription,
-      role: 'wild'
+      participantId: 'wild-encounter',
+      role: 'wild',
+      label: encounter.zoneLabel,
+      creature: this.createCreatureInstance({
+        role: 'wild',
+        instanceId: `wild-${encounter.dinosaurId}`,
+        dinosaur,
+        fallbackName: encounter.creatureName || TEMPORARY_BATTLE_CONFIG.defaultWildCreatureName,
+        fallbackSpritePath: encounter.spritePath,
+        placeholderHpStatus: TEMPORARY_BATTLE_CONFIG.placeholderHp.wild
+      })
     };
   }
 
-  private createPlayerActor(): BattleActorViewModel {
+  private createPlayerParticipant(): BattleParticipant {
     const state = loadPlayerState();
     const selectedPartyCreature = state.partyCreatures.find((creature) => creature.dinosaurId === state.selectedCreatureId)
       ?? state.partyCreatures[0];
     const dinosaur = selectedPartyCreature ? this.getDinosaur(selectedPartyCreature.dinosaurId) : undefined;
+    const fallbackName = state.selectedCreatureId
+      ? getKnownDinosaurName(state.selectedCreatureId)
+      : TEMPORARY_BATTLE_CONFIG.defaultPlayerCreatureName;
 
     return {
-      dinosaurId: dinosaur?.id,
-      displayName: dinosaur?.displayName ?? (state.selectedCreatureId ? getKnownDinosaurName(state.selectedCreatureId) : 'Field Companion'),
-      spritePath: dinosaur?.battleSpritePath,
-      description: dinosaur?.shortDescription ?? 'Placeholder party creature data will be expanded later.',
-      role: 'player'
+      participantId: 'player-party-lead',
+      role: 'player',
+      label: 'Field Team',
+      creature: this.createCreatureInstance({
+        role: 'player',
+        instanceId: selectedPartyCreature?.instanceId ?? 'player-placeholder-creature',
+        dinosaur,
+        fallbackName,
+        placeholderHpStatus: TEMPORARY_BATTLE_CONFIG.placeholderHp.player
+      })
+    };
+  }
+
+  private createCreatureInstance(options: {
+    role: BattleParticipantRole;
+    instanceId: string;
+    dinosaur?: DinosaurDefinition;
+    fallbackName: string;
+    fallbackSpritePath?: string;
+    placeholderHpStatus: PlaceholderHpStatusDisplay;
+  }): BattleCreatureInstance {
+    return {
+      instanceId: options.instanceId,
+      dinosaurId: options.dinosaur?.id,
+      displayName: options.dinosaur?.displayName ?? options.fallbackName,
+      spritePath: options.dinosaur?.battleSpritePath ?? options.fallbackSpritePath,
+      description: options.dinosaur?.shortDescription ?? `${options.role} placeholder creature data will be expanded later.`,
+      artNotes: options.dinosaur?.spriteGenerationNotes,
+      placeholderHpStatus: { ...options.placeholderHpStatus }
     };
   }
 
@@ -133,7 +184,7 @@ export class BattleScene extends Phaser.Scene {
     this.add.rectangle(320, 352, 640, 42, 0x2d4632, 0.22);
     this.add.circle(124, 326, 92, 0xc7a765, 0.32);
     this.add.circle(464, 202, 76, 0xc7a765, 0.22);
-    this.add.text(320, 24, 'Battle Shell — placeholder systems only', {
+    this.add.text(320, 24, 'Battle Shell — temporary data scaffolding only', {
       align: 'center',
       color: '#f8f3df',
       fontFamily: 'monospace',
@@ -141,10 +192,10 @@ export class BattleScene extends Phaser.Scene {
     }).setOrigin(0.5);
   }
 
-  private drawActorArea(actor: BattleActorViewModel, x: number, y: number, mirrored: boolean): void {
+  private drawActorArea(participant: BattleParticipant, x: number, y: number, mirrored: boolean): void {
     this.add.rectangle(x, y + 74, 210, 30, 0x000000, 0.16);
-    this.drawPlaceholderCreature(actor, x, y, mirrored);
-    this.add.text(x, y + 116, actor.spritePath ? `sprite: ${actor.spritePath}` : 'placeholder silhouette', {
+    this.drawPlaceholderCreature(participant, x, y, mirrored);
+    this.add.text(x, y + 116, participant.creature.spritePath ? `sprite: ${participant.creature.spritePath}` : 'placeholder silhouette', {
       align: 'center',
       color: '#d6ad6a',
       fontFamily: 'monospace',
@@ -153,12 +204,12 @@ export class BattleScene extends Phaser.Scene {
     }).setOrigin(0.5);
   }
 
-  private drawPlaceholderCreature(actor: BattleActorViewModel, x: number, y: number, mirrored: boolean): void {
-    const bodyColor = actor.role === 'wild' ? 0x243126 : 0x2d4632;
-    const accentColor = actor.role === 'wild' ? 0xf0c878 : 0xd99c3b;
+  private drawPlaceholderCreature(participant: BattleParticipant, x: number, y: number, mirrored: boolean): void {
+    const bodyColor = participant.role === 'wild' ? 0x243126 : 0x2d4632;
+    const accentColor = participant.role === 'wild' ? 0xf0c878 : 0xd99c3b;
     const direction = mirrored ? -1 : 1;
-    const hasCrest = actor.dinosaurId === 'parasaurolophus' || actor.dinosaurId === 'pteranodon';
-    const hasArmor = actor.dinosaurId === 'triceratops' || actor.dinosaurId === 'ankylosaurus';
+    const hasCrest = participant.creature.dinosaurId === 'parasaurolophus' || participant.creature.dinosaurId === 'pteranodon';
+    const hasArmor = participant.creature.dinosaurId === 'triceratops' || participant.creature.dinosaurId === 'ankylosaurus';
 
     this.add.circle(x - 42 * direction, y - 2, 34, bodyColor);
     this.add.rectangle(x, y + 8, 94, 62, bodyColor);
@@ -179,46 +230,49 @@ export class BattleScene extends Phaser.Scene {
     }
   }
 
-  private drawStatusBox(name: string, x: number, y: number, subtitle: string): void {
-    this.add.rectangle(x + 112, y + 42, 224, 84, 0xf8f3df, 0.96).setStrokeStyle(4, 0x2d4632);
-    this.add.text(x + 20, y + 14, name, {
+  private drawStatusBox(creature: BattleCreatureInstance, x: number, y: number): void {
+    const hpStatus = creature.placeholderHpStatus;
+    const statusLabel = getTemporaryStatusLabel(hpStatus.statusLabelId);
+    const hpRatio = hpStatus.maxHp > 0 ? Math.max(0, Math.min(1, hpStatus.currentHp / hpStatus.maxHp)) : 0;
+
+    this.add.rectangle(x + 112, y + 42, 224, 90, 0xf8f3df, 0.96).setStrokeStyle(4, 0x2d4632);
+    this.add.text(x + 20, y + 12, creature.displayName, {
       color: '#17251d',
       fontFamily: 'monospace',
       fontSize: '18px',
       fontStyle: 'bold'
     });
-    this.add.text(x + 20, y + 38, subtitle, {
+    this.add.text(x + 20, y + 36, hpStatus.note, {
       color: '#6f4b2f',
       fontFamily: 'monospace',
       fontSize: '12px'
     });
-    this.add.rectangle(x + 112, y + 66, 160, 12, 0x2d4632, 0.28);
-    this.add.rectangle(x + 112, y + 66, 154, 7, 0x6c7f43, 0.75);
-    this.add.text(x + 190, y + 56, 'HP/status TBD', {
-      align: 'right',
+    this.add.rectangle(x + 112, y + 64, 160, 12, 0x2d4632, 0.28);
+    this.add.rectangle(x + 35 + 77 * hpRatio, y + 64, 154 * hpRatio, 7, 0x6c7f43, 0.75);
+    this.add.text(x + 20, y + 73, `${hpStatus.currentHp}/${hpStatus.maxHp} HP · ${statusLabel.displayText}`, {
       color: '#6c7f43',
       fontFamily: 'monospace',
       fontSize: '10px'
-    }).setOrigin(1, 0);
+    });
   }
 
   private drawMessageAndMenu(): void {
     this.add.rectangle(320, 426, 612, 118, 0xf8f3df, 0.98).setStrokeStyle(5, 0x2d4632);
-    this.messageText = this.add.text(38, 384, BATTLE_MESSAGE, {
+    this.messageText = this.add.text(38, 384, '', {
       color: '#17251d',
       fontFamily: 'monospace',
       fontSize: '18px',
       lineSpacing: 6,
       wordWrap: { width: 352 }
     });
-    this.add.text(38, 456, 'Controls: ↑/↓/←/→ choose · Enter confirm · F/Esc flee', {
+    this.add.text(38, 456, 'Controls: arrows choose · Enter confirm/next · Esc back/flee · F flee · O/A/P shortcuts', {
       color: '#6c7f43',
       fontFamily: 'monospace',
-      fontSize: '12px'
+      fontSize: '11px'
     });
     this.add.rectangle(504, 426, 198, 88, 0xefe2bf, 0.96).setStrokeStyle(3, 0x6f4b2f);
 
-    this.menuTexts = MENU_OPTIONS.map((option, index) => this.add.text(424 + (index % 2) * 92, 400 + Math.floor(index / 2) * 34, option, {
+    this.menuTexts = MAIN_MENU_OPTIONS.map((option, index) => this.add.text(424 + (index % 2) * 92, 400 + Math.floor(index / 2) * 34, option, {
       color: '#2d4632',
       fontFamily: 'monospace',
       fontSize: '15px',
@@ -245,19 +299,80 @@ export class BattleScene extends Phaser.Scene {
   }
 
   private changeSelection(delta: number): void {
-    this.selectedMenuIndex = (this.selectedMenuIndex + delta + MENU_OPTIONS.length) % MENU_OPTIONS.length;
+    const optionCount = this.getCurrentOptionCount();
+
+    if (optionCount <= 0) {
+      return;
+    }
+
+    this.menuState = {
+      ...this.menuState,
+      selectedIndex: (this.menuState.selectedIndex + delta + optionCount) % optionCount
+    };
     this.updateMenuLabels();
   }
 
   private updateMenuLabels(): void {
+    const options = this.getCurrentMenuLabels();
+
     this.menuTexts.forEach((text, index) => {
-      const marker = index === this.selectedMenuIndex ? '▶ ' : '  ';
-      text.setText(`${marker}${MENU_OPTIONS[index]}`);
+      const option = options[index];
+
+      if (!option) {
+        text.setText('');
+        return;
+      }
+
+      const marker = index === this.menuState.selectedIndex ? '▶ ' : '  ';
+      text.setText(`${marker}${option}`);
     });
   }
 
+  private getCurrentOptionCount(): number {
+    return this.getCurrentMenuLabels().length;
+  }
+
+  private getCurrentMenuLabels(): string[] {
+    if (this.menuState.mode === 'actions') {
+      return TEMPORARY_BATTLE_ACTIONS.map((action) => action.label);
+    }
+
+    if (this.menuState.mode === 'observe') {
+      return ['Back'];
+    }
+
+    if (this.menuState.mode === 'field-pack') {
+      return ['Back'];
+    }
+
+    return MAIN_MENU_OPTIONS;
+  }
+
+  private confirmOrAdvanceMessage(): void {
+    if (this.hasPendingMessages()) {
+      this.showNextMessage();
+      return;
+    }
+
+    this.chooseSelectedOption();
+  }
+
   private chooseSelectedOption(): void {
-    const selectedOption = MENU_OPTIONS[this.selectedMenuIndex];
+    if (this.menuState.mode === 'actions') {
+      const selectedAction = TEMPORARY_BATTLE_ACTIONS[this.menuState.selectedIndex];
+
+      if (selectedAction) {
+        this.selectTemporaryAction(selectedAction);
+      }
+      return;
+    }
+
+    if (this.menuState.mode === 'observe' || this.menuState.mode === 'field-pack') {
+      this.openMainMenu();
+      return;
+    }
+
+    const selectedOption = MAIN_MENU_OPTIONS[this.menuState.selectedIndex];
 
     if (selectedOption === 'Flee') {
       this.flee();
@@ -265,21 +380,124 @@ export class BattleScene extends Phaser.Scene {
     }
 
     if (selectedOption === 'Observe') {
-      this.showObserveText();
+      this.openObservePanel();
       return;
     }
 
-    this.showPlaceholderText(selectedOption);
+    if (selectedOption === 'Actions') {
+      this.openActionsPanel();
+      return;
+    }
+
+    this.openFieldPackPanel();
   }
 
-  private showObserveText(): void {
-    const dinosaur = this.encounter ? this.getDinosaur(this.encounter.dinosaurId) : undefined;
-    const description = dinosaur?.shortDescription ?? 'Temporary field notes are unavailable for this placeholder creature.';
-    this.messageText?.setText(`Observe: ${description}`);
+  private openMainMenu(): void {
+    this.menuState = { mode: 'main', selectedIndex: 0 };
+    this.clearPanel();
+    this.updateMenuLabels();
   }
 
-  private showPlaceholderText(option: Exclude<BattleMenuOption, 'Observe' | 'Flee'>): void {
-    this.messageText?.setText(`${option}: ${NOT_IMPLEMENTED_MESSAGE}`);
+  private openObservePanel(): void {
+    const wildCreature = this.participants?.wild.creature;
+
+    this.menuState = { mode: 'observe', selectedIndex: 0 };
+    this.drawPanel('Observe', [
+      wildCreature?.displayName ?? TEMPORARY_BATTLE_CONFIG.defaultWildCreatureName,
+      wildCreature?.description ?? 'Temporary field notes are unavailable for this placeholder creature.',
+      wildCreature?.artNotes ? `Art notes: ${wildCreature.artNotes}` : 'Art notes: not available yet.'
+    ]);
+    this.queueMessages([
+      `Observe: ${wildCreature?.displayName ?? 'creature'} field notes opened.`,
+      'These notes come from temporary dinosaur description/art data when available.'
+    ]);
+    this.updateMenuLabels();
+  }
+
+  private openActionsPanel(): void {
+    this.menuState = { mode: 'actions', selectedIndex: 0 };
+    this.drawPanel('Actions', TEMPORARY_BATTLE_ACTIONS.map((action) => {
+      const linkedMove = TEMPORARY_MOVE_LIKE_ENTRIES.find((entry) => entry.id === action.linkedMoveLikeEntryId);
+      return `${action.label}: ${linkedMove?.intent ?? action.summary}`;
+    }));
+    this.queueMessages([
+      'Actions placeholder opened.',
+      'Choose a temporary entry to test menu flow only.'
+    ]);
+    this.updateMenuLabels();
+  }
+
+  private openFieldPackPanel(): void {
+    this.menuState = { mode: 'field-pack', selectedIndex: 0 };
+    this.drawPanel(TEMPORARY_BATTLE_CONFIG.fieldPackTitle, [
+      'No usable field items are implemented in this battle scaffold.',
+      'Capture, healing, and inventory action rules remain future design work.'
+    ]);
+    this.queueMessages(TEMPORARY_BATTLE_CONFIG.fieldPackLines);
+    this.updateMenuLabels();
+  }
+
+  private selectTemporaryAction(action: BattleAction): void {
+    const linkedMove = TEMPORARY_MOVE_LIKE_ENTRIES.find((entry) => entry.id === action.linkedMoveLikeEntryId);
+
+    this.drawPanel(action.label, [
+      action.summary,
+      linkedMove ? `Linked temporary move-like entry: ${linkedMove.label}.` : 'No linked move-like entry.',
+      linkedMove?.developerNote ?? 'Future real battle data will replace this placeholder.'
+    ]);
+    this.queueMessages(action.messageLines);
+  }
+
+  private drawPanel(title: string, lines: string[]): void {
+    this.clearPanel();
+    this.panelObjects.push(this.add.rectangle(320, 176, 560, 210, 0xf8f3df, 0.96).setStrokeStyle(4, 0x6f4b2f));
+    this.panelObjects.push(this.add.text(66, 88, title, {
+      color: '#17251d',
+      fontFamily: 'monospace',
+      fontSize: '18px',
+      fontStyle: 'bold'
+    }));
+    this.panelObjects.push(this.add.text(66, 120, lines.join('\n\n'), {
+      color: '#2d4632',
+      fontFamily: 'monospace',
+      fontSize: '12px',
+      lineSpacing: 5,
+      wordWrap: { width: 508 }
+    }));
+  }
+
+  private clearPanel(): void {
+    this.panelObjects.forEach((gameObject) => gameObject.destroy());
+    this.panelObjects = [];
+  }
+
+  private queueMessages(lines: string[]): void {
+    this.messageQueue = { pendingLines: [...lines] };
+    this.showNextMessage();
+  }
+
+  private showNextMessage(): void {
+    const nextLine = this.messageQueue.pendingLines.shift();
+
+    if (!nextLine) {
+      return;
+    }
+
+    this.messageQueue.activeLine = nextLine;
+    this.messageText?.setText(nextLine);
+  }
+
+  private hasPendingMessages(): boolean {
+    return this.messageQueue.pendingLines.length > 0;
+  }
+
+  private backOrFlee(): void {
+    if (this.menuState.mode !== 'main') {
+      this.openMainMenu();
+      return;
+    }
+
+    this.flee();
   }
 
   private flee(): void {
