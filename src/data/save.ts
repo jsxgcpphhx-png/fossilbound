@@ -1,35 +1,15 @@
-import { SAVE_KEY } from './constants';
 import type { TilePosition } from '../types/grid';
-
-interface MilestoneOneSave {
-  playerTile: TilePosition;
-}
+import { loadPlayerState, savePlayerState, updatePlayerPosition } from './playerState';
 
 export function loadPlayerTile(fallback: TilePosition): TilePosition {
-  const rawSave = window.localStorage.getItem(SAVE_KEY);
-
-  if (!rawSave) {
-    return fallback;
-  }
-
-  try {
-    const save = JSON.parse(rawSave) as Partial<MilestoneOneSave>;
-
-    if (
-      save.playerTile &&
-      Number.isInteger(save.playerTile.x) &&
-      Number.isInteger(save.playerTile.y)
-    ) {
-      return save.playerTile;
-    }
-  } catch {
-    window.localStorage.removeItem(SAVE_KEY);
-  }
-
-  return fallback;
+  return loadPlayerState({ currentPosition: fallback }).currentPosition;
 }
 
 export function savePlayerTile(playerTile: TilePosition): void {
-  const save: MilestoneOneSave = { playerTile };
-  window.localStorage.setItem(SAVE_KEY, JSON.stringify(save));
+  const state = loadPlayerState({ currentPosition: playerTile });
+  savePlayerState({ ...state, currentPosition: playerTile });
+}
+
+export function savePlayerMapTile(currentMap: 'AmberleafTownScene' | 'LabScene', playerTile: TilePosition): void {
+  updatePlayerPosition(currentMap, playerTile);
 }
