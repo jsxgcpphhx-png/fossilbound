@@ -61,6 +61,7 @@ declare namespace Phaser {
       textures: { createCanvas(key: string, width: number, height: number): CanvasTexture | null };
       add: {
         circle(x: number, y: number, radius: number, color: number, alpha?: number): GameObjects.GameObject;
+        ellipse(x: number, y: number, width: number, height: number, color: number, alpha?: number): GameObjects.GameObject;
         group(children: unknown[]): GameObjects.Group;
         rectangle(x: number, y: number, width: number, height: number, color: number, alpha?: number): GameObjects.Rectangle;
         sprite(x: number, y: number, key: string): GameObjects.Sprite;
@@ -74,7 +75,7 @@ declare namespace Phaser {
         };
         once(eventName: string, callback: () => void): void;
       };
-      scene: { start(sceneKey: string): void };
+      scene: { start(sceneKey: string, data?: unknown): void };
       tweens: { add(config: Record<string, unknown>): void };
     }
 

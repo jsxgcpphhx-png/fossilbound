@@ -1,46 +1,46 @@
 import Phaser from 'phaser';
 import { GAME_HEIGHT, GAME_WIDTH, TILE_SIZE } from '../data/constants';
-import { loadPlayerState, updatePlayerPosition } from '../data/playerState';
+import { PLACEHOLDER_SELECTION_CREATURES } from '../data/creatureSelection';
+import { loadPlayerState, selectCreature, updatePlayerPosition } from '../data/playerState';
 import { GridMover } from '../systems/GridMover';
 import { DebugPanel } from '../ui/DebugPanel';
 import { DialogueBox } from '../ui/DialogueBox';
+import { CreatureSelectionPanel } from '../ui/CreatureSelectionPanel';
 import { PartyMenu } from '../ui/PartyMenu';
 import type { Direction, TilePosition } from '../types/grid';
 
 const MAP_WIDTH = GAME_WIDTH / TILE_SIZE;
 const MAP_HEIGHT = GAME_HEIGHT / TILE_SIZE;
-const START_TILE: TilePosition = { x: 9, y: 9 };
-const LAB_DOOR_TILE: TilePosition = { x: 7, y: 5 };
-const LAB_ENTRY_TILE: TilePosition = { x: 9, y: 12 };
-const ROUTE_EXIT_TILE: TilePosition = { x: 18, y: 10 };
-const ROUTE_ENTRY_TILE: TilePosition = { x: 2, y: 7 };
-const DR_SABLE_TILE: TilePosition = { x: 10, y: 7 };
-const DR_SABLE_DIALOGUE =
-  'Welcome to Amberleaf Town! These old roots hide newer mysteries. Our field guide now tracks real prehistoric creatures while final sprite art is prepared.';
+const START_TILE: TilePosition = { x: 9, y: 12 };
+const EXIT_TILE: TilePosition = { x: 9, y: 13 };
+const TOWN_RETURN_TILE: TilePosition = { x: 7, y: 6 };
+const SELECTION_TABLE_TILE: TilePosition = { x: 9, y: 5 };
+const DR_SABLE_TILE: TilePosition = { x: 12, y: 6 };
 
 const TERRAIN = [
   'BBBBBBBBBBBBBBBBBBBB',
-  'BggggggggggggggggggB',
-  'BgggppppppppgggggggB',
-  'BgggphhhhpppggwwgggB',
-  'BgggphhhhpppggwwgggB',
-  'BgggppppppppggwwgggB',
-  'BggggggppggggggggggB',
-  'BgggffgppgffgggggggB',
-  'BgggffgppgffgggggggB',
-  'BggggggppggggggggggB',
-  'BggppppppppppppggggB',
-  'BggpggggggggggpggggB',
-  'BggpggttggttggpggggB',
-  'BggggggggggggggggggB',
+  'BffffffffffffffffffB',
+  'BfggggggggggggggggfB',
+  'BfggggggggggggggggfB',
+  'BfgggfffggggfffgggfB',
+  'BfgggfffttttfffgggfB',
+  'BfggggggggggggggggfB',
+  'BfggggppppppggggggfB',
+  'BfggggppppppggggggfB',
+  'BfggggggggggggggggfB',
+  'BfgggggffffgggggggfB',
+  'BfggggggggggggggggfB',
+  'BfggggggppggggggggfB',
+  'BfggggggppggggggggfB',
   'BBBBBBBBBBBBBBBBBBBB'
 ] as const;
 
-export class AmberleafTownScene extends Phaser.Scene {
+export class LabScene extends Phaser.Scene {
   private player?: GridMover;
   private debugPanel?: DebugPanel;
   private dialogueBox?: DialogueBox;
   private partyMenu?: PartyMenu;
+  private selectionPanel?: CreatureSelectionPanel;
   private movementKeys?: Record<Direction, Phaser.Input.Keyboard.Key[]>;
   private interactKeys?: Phaser.Input.Keyboard.Key[];
   private partyKeys?: Phaser.Input.Keyboard.Key[];
@@ -48,7 +48,7 @@ export class AmberleafTownScene extends Phaser.Scene {
   private npcTiles = new Map<string, { name: string; dialogue: string }>();
 
   constructor() {
-    super('AmberleafTownScene');
+    super('LabScene');
   }
 
   preload(): void {
@@ -56,15 +56,13 @@ export class AmberleafTownScene extends Phaser.Scene {
   }
 
   create(): void {
-    this.cameras.main.setBackgroundColor('#223324');
+    this.cameras.main.setBackgroundColor('#273527');
     this.drawMap();
-    this.createNpc();
+    this.createLabDetails();
 
-    const savedState = loadPlayerState({ currentMap: 'AmberleafTownScene', currentPosition: START_TILE });
-    const savedStartTile = this.getValidStartTile(
-      savedState.currentMap === 'AmberleafTownScene' ? savedState.currentPosition : START_TILE
-    );
-    const playerSprite = this.add.sprite(0, 0, 'player').setDepth(5);
+    const savedState = loadPlayerState({ currentMap: 'LabScene', currentPosition: START_TILE });
+    const savedStartTile = this.getValidStartTile(savedState.currentMap === 'LabScene' ? savedState.currentPosition : START_TILE);
+    const playerSprite = this.add.sprite(0, 0, 'lab-player').setDepth(5);
     this.player = new GridMover({
       sprite: playerSprite,
       startTile: savedStartTile,
@@ -75,16 +73,29 @@ export class AmberleafTownScene extends Phaser.Scene {
     this.debugPanel = new DebugPanel(this);
     this.dialogueBox = new DialogueBox(this);
     this.partyMenu = new PartyMenu(this);
+    this.selectionPanel = new CreatureSelectionPanel(this, {
+      creatures: PLACEHOLDER_SELECTION_CREATURES,
+      onChoose: (creature) => {
+        selectCreature(creature.id);
+        this.selectionPanel?.hide();
+        this.dialogueBox?.show('Lab Terminal', `${creature.displayName} was saved to your placeholder party data.`);
+      }
+    });
     this.registerControls();
     this.addLocationLabel();
   }
 
   update(): void {
-    if (!this.player || !this.debugPanel || !this.dialogueBox || !this.partyMenu) {
+    if (!this.player || !this.debugPanel || !this.dialogueBox || !this.partyMenu || !this.selectionPanel) {
       return;
     }
 
     this.debugPanel.update(this.player.currentTile);
+
+    if (this.selectionPanel.isOpen()) {
+      this.handleSelectionControls();
+      return;
+    }
 
     if (this.isPartyMenuPressed()) {
       if (this.dialogueBox.isOpen()) {
@@ -109,7 +120,7 @@ export class AmberleafTownScene extends Phaser.Scene {
     if (this.isInteractPressed()) {
       if (this.dialogueBox.isOpen()) {
         this.dialogueBox.hide();
-      } else {
+      } else if (!this.tryUseSelectionTable()) {
         this.tryTalkToNpc();
       }
       return;
@@ -127,7 +138,7 @@ export class AmberleafTownScene extends Phaser.Scene {
   }
 
   private createPlaceholderSprites(): void {
-    const playerCanvas = this.textures.createCanvas('player', TILE_SIZE, TILE_SIZE);
+    const playerCanvas = this.textures.createCanvas('lab-player', TILE_SIZE, TILE_SIZE);
     const playerContext = playerCanvas?.getContext();
 
     if (playerCanvas && playerContext) {
@@ -147,23 +158,23 @@ export class AmberleafTownScene extends Phaser.Scene {
       playerCanvas.refresh();
     }
 
-    const npcCanvas = this.textures.createCanvas('dr-sable', TILE_SIZE, TILE_SIZE);
-    const npcContext = npcCanvas?.getContext();
+    const sableCanvas = this.textures.createCanvas('lab-dr-sable', TILE_SIZE, TILE_SIZE);
+    const sableContext = sableCanvas?.getContext();
 
-    if (npcCanvas && npcContext) {
-      npcContext.fillStyle = '#00000033';
-      npcContext.fillRect(6, 28, 20, 4);
-      npcContext.fillStyle = '#3c2f2f';
-      npcContext.fillRect(8, 5, 16, 8);
-      npcContext.fillStyle = '#d6aa78';
-      npcContext.fillRect(10, 8, 12, 10);
-      npcContext.fillStyle = '#f8f3df';
-      npcContext.fillRect(7, 17, 18, 13);
-      npcContext.fillStyle = '#6c7f43';
-      npcContext.fillRect(13, 19, 6, 9);
-      npcContext.fillStyle = '#d99c3b';
-      npcContext.fillRect(21, 19, 3, 8);
-      npcCanvas.refresh();
+    if (sableCanvas && sableContext) {
+      sableContext.fillStyle = '#00000033';
+      sableContext.fillRect(6, 28, 20, 4);
+      sableContext.fillStyle = '#3c2f2f';
+      sableContext.fillRect(8, 5, 16, 8);
+      sableContext.fillStyle = '#d6aa78';
+      sableContext.fillRect(10, 8, 12, 10);
+      sableContext.fillStyle = '#f8f3df';
+      sableContext.fillRect(7, 17, 18, 13);
+      sableContext.fillStyle = '#6c7f43';
+      sableContext.fillRect(13, 19, 6, 9);
+      sableContext.fillStyle = '#d99c3b';
+      sableContext.fillRect(21, 19, 3, 8);
+      sableCanvas.refresh();
     }
   }
 
@@ -173,40 +184,19 @@ export class AmberleafTownScene extends Phaser.Scene {
         const tile = TERRAIN[y][x];
         const centerX = x * TILE_SIZE + TILE_SIZE / 2;
         const centerY = y * TILE_SIZE + TILE_SIZE / 2;
-        const color = this.getTileColor(tile);
 
-        this.add.rectangle(centerX, centerY, TILE_SIZE, TILE_SIZE, color);
+        this.add.rectangle(centerX, centerY, TILE_SIZE, TILE_SIZE, this.getTileColor(tile));
         this.add.rectangle(centerX, centerY + 12, TILE_SIZE, 8, 0x000000, 0.06);
         this.add.rectangle(centerX, centerY, TILE_SIZE, TILE_SIZE, 0x000000, 0).setStrokeStyle(1, 0x000000, 0.08);
 
-        if (tile === 'h') {
-          this.add.rectangle(centerX, centerY - 3, 27, 20, 0x9a5f2d);
-          this.add.rectangle(centerX, centerY - 13, 29, 8, 0x6f4b2f);
-          this.add.rectangle(centerX, centerY + 9, 10, 10, 0x593928);
-          this.add.rectangle(centerX + 8, centerY + 1, 5, 5, 0xf0c878);
+        if (tile === 'f') {
+          this.add.rectangle(centerX, centerY, 26, 24, 0x7a4f2b, 0.55);
+          this.add.rectangle(centerX, centerY - 8, 24, 4, 0xb4874d, 0.85);
         }
 
         if (tile === 't') {
-          this.add.circle(centerX, centerY - 5, 13, 0x2f6f3e);
-          this.add.circle(centerX + 6, centerY - 9, 9, 0x386641);
-          this.add.rectangle(centerX, centerY + 9, 6, 12, 0x7a4f2b);
-        }
-
-        if (tile === 'f') {
-          this.add.rectangle(centerX, centerY + 1, 25, 8, 0x8a6a3d);
-          this.add.rectangle(centerX, centerY - 3, 25, 3, 0xb4874d);
-        }
-
-        if (x === LAB_DOOR_TILE.x && y === LAB_DOOR_TILE.y) {
-          this.add.rectangle(centerX, centerY - 8, 30, 20, 0x8a6a3d);
-          this.add.rectangle(centerX, centerY - 18, 34, 10, 0x6f4b2f);
-          this.add.rectangle(centerX, centerY + 4, 12, 16, 0x2d1f16);
-          this.add.circle(centerX + 4, centerY + 4, 1.5, 0xd99c3b);
-        }
-
-        if (x === ROUTE_EXIT_TILE.x && y === ROUTE_EXIT_TILE.y) {
-          this.add.rectangle(centerX + 7, centerY, 12, 28, 0xd6ad6a, 0.75);
-          this.add.rectangle(centerX + 12, centerY, 5, 22, 0xf0c878, 0.75);
+          this.add.rectangle(centerX, centerY, 30, 20, 0x8a6a3d);
+          this.add.rectangle(centerX, centerY - 5, 24, 4, 0xd99c3b);
         }
       }
     }
@@ -216,58 +206,53 @@ export class AmberleafTownScene extends Phaser.Scene {
     switch (tile) {
       case 'B':
         return 0x243b2a;
+      case 'f':
+        return 0x3f543c;
       case 'p':
         return 0xd6ad6a;
-      case 'h':
-        return 0xbf7d36;
-      case 'w':
-        return 0x4f8cad;
-      case 'f':
-        return 0x8a6a3d;
       case 't':
-        return 0x386641;
+        return 0x80613b;
       default:
-        return 0x739f4f;
+        return 0x6c7f43;
     }
   }
 
-  private createNpc(): void {
+  private createLabDetails(): void {
+    this.add.rectangle(320, 86, 330, 28, 0xf0c878, 0.55).setDepth(2);
+    this.add.text(178, 76, 'Amberleaf Research Lab', {
+      color: '#2d4632',
+      fontFamily: 'monospace',
+      fontSize: '16px',
+      fontStyle: 'bold'
+    }).setDepth(3);
+    this.add.text(238, 190, 'Specimen Table', {
+      backgroundColor: 'rgba(23, 37, 29, 0.78)',
+      color: '#f8f3df',
+      fontFamily: 'monospace',
+      fontSize: '11px',
+      padding: { x: 4, y: 2 }
+    }).setDepth(6);
+    this.add.text(254, 424, 'Exit', {
+      backgroundColor: 'rgba(23, 37, 29, 0.78)',
+      color: '#f8f3df',
+      fontFamily: 'monospace',
+      fontSize: '11px',
+      padding: { x: 4, y: 2 }
+    }).setDepth(6);
+
     this.add.sprite(
       DR_SABLE_TILE.x * TILE_SIZE + TILE_SIZE / 2,
       DR_SABLE_TILE.y * TILE_SIZE + TILE_SIZE / 2,
-      'dr-sable'
+      'lab-dr-sable'
     ).setDepth(4);
-    this.add.text(DR_SABLE_TILE.x * TILE_SIZE - 28, DR_SABLE_TILE.y * TILE_SIZE - 30, 'Dr. Sable', {
-      backgroundColor: 'rgba(23, 37, 29, 0.78)',
-      color: '#f8f3df',
-      fontFamily: 'monospace',
-      fontSize: '12px',
-      padding: { x: 4, y: 2 }
-    }).setDepth(6);
     this.npcTiles.set(this.tileKey(DR_SABLE_TILE), {
       name: 'Dr. Sable',
-      dialogue: DR_SABLE_DIALOGUE
+      dialogue: 'The lab selection terminal is only a placeholder. It saves party data, but it does not define final creatures, types, stats, moves, or battles.'
     });
-
-    this.add.text(LAB_DOOR_TILE.x * TILE_SIZE - 34, LAB_DOOR_TILE.y * TILE_SIZE - 36, 'Research Lab', {
-      backgroundColor: 'rgba(23, 37, 29, 0.78)',
-      color: '#f8f3df',
-      fontFamily: 'monospace',
-      fontSize: '11px',
-      padding: { x: 4, y: 2 }
-    }).setDepth(6);
-
-    this.add.text(ROUTE_EXIT_TILE.x * TILE_SIZE - 58, ROUTE_EXIT_TILE.y * TILE_SIZE - 30, 'Fern Trail →', {
-      backgroundColor: 'rgba(23, 37, 29, 0.78)',
-      color: '#f8f3df',
-      fontFamily: 'monospace',
-      fontSize: '11px',
-      padding: { x: 4, y: 2 }
-    }).setDepth(6);
   }
 
   private addLocationLabel(): void {
-    const label = this.add.text(320, 46, 'Amberleaf Town', {
+    const label = this.add.text(320, 46, 'Amberleaf Research Lab', {
       backgroundColor: 'rgba(248, 243, 223, 0.92)',
       color: '#2d4632',
       fontFamily: 'monospace',
@@ -293,29 +278,43 @@ export class AmberleafTownScene extends Phaser.Scene {
     }
 
     this.movementKeys = {
-      up: [
-        keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.UP),
-        keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W)
-      ],
-      down: [
-        keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.DOWN),
-        keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S)
-      ],
-      left: [
-        keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.LEFT),
-        keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A)
-      ],
-      right: [
-        keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.RIGHT),
-        keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D)
-      ]
+      up: [keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.UP), keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W)],
+      down: [keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.DOWN), keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S)],
+      left: [keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.LEFT), keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A)],
+      right: [keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.RIGHT), keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D)]
     };
     this.interactKeys = [
       keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE),
-      keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E)
+      keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E),
+      keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER)
     ];
     this.partyKeys = [keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.P)];
     this.escapeKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
+  }
+
+  private handleSelectionControls(): void {
+    if (!this.selectionPanel) {
+      return;
+    }
+
+    if (this.isEscapePressed()) {
+      this.selectionPanel.hide();
+      return;
+    }
+
+    if (this.isSelectionPreviousPressed()) {
+      this.selectionPanel.moveSelection(-1);
+      return;
+    }
+
+    if (this.isSelectionNextPressed()) {
+      this.selectionPanel.moveSelection(1);
+      return;
+    }
+
+    if (this.isInteractPressed()) {
+      this.selectionPanel.chooseSelected();
+    }
   }
 
   private getPressedDirection(): Direction | undefined {
@@ -343,6 +342,33 @@ export class AmberleafTownScene extends Phaser.Scene {
     return this.escapeKey ? Phaser.Input.Keyboard.JustDown(this.escapeKey) : false;
   }
 
+  private isSelectionPreviousPressed(): boolean {
+    return Boolean(
+      this.movementKeys?.left.some((key) => Phaser.Input.Keyboard.JustDown(key)) ||
+        this.movementKeys?.up.some((key) => Phaser.Input.Keyboard.JustDown(key))
+    );
+  }
+
+  private isSelectionNextPressed(): boolean {
+    return Boolean(
+      this.movementKeys?.right.some((key) => Phaser.Input.Keyboard.JustDown(key)) ||
+        this.movementKeys?.down.some((key) => Phaser.Input.Keyboard.JustDown(key))
+    );
+  }
+
+  private tryUseSelectionTable(): boolean {
+    if (!this.player || !this.selectionPanel) {
+      return false;
+    }
+
+    if (this.tileKey(this.player.getFacingTile()) !== this.tileKey(SELECTION_TABLE_TILE)) {
+      return false;
+    }
+
+    this.selectionPanel.show();
+    return true;
+  }
+
   private tryTalkToNpc(): void {
     if (!this.player || !this.dialogueBox) {
       return;
@@ -356,19 +382,13 @@ export class AmberleafTownScene extends Phaser.Scene {
   }
 
   private handleMoveComplete(tile: TilePosition): void {
-    if (this.tileKey(tile) === this.tileKey(LAB_DOOR_TILE)) {
-      updatePlayerPosition('LabScene', LAB_ENTRY_TILE);
-      this.scene.start('LabScene');
+    if (this.tileKey(tile) === this.tileKey(EXIT_TILE)) {
+      updatePlayerPosition('AmberleafTownScene', TOWN_RETURN_TILE);
+      this.scene.start('AmberleafTownScene');
       return;
     }
 
-    if (this.tileKey(tile) === this.tileKey(ROUTE_EXIT_TILE)) {
-      updatePlayerPosition('FernTrailScene', ROUTE_ENTRY_TILE);
-      this.scene.start('FernTrailScene');
-      return;
-    }
-
-    updatePlayerPosition('AmberleafTownScene', tile);
+    updatePlayerPosition('LabScene', tile);
   }
 
   private canEnterTile(tile: TilePosition): boolean {
@@ -377,7 +397,7 @@ export class AmberleafTownScene extends Phaser.Scene {
     }
 
     const terrain = TERRAIN[tile.y][tile.x];
-    const blockedTerrain = terrain === 'B' || terrain === 'h' || terrain === 'w' || terrain === 'f' || terrain === 't';
+    const blockedTerrain = terrain === 'B' || terrain === 'f' || terrain === 't';
 
     return !blockedTerrain && !this.npcTiles.has(this.tileKey(tile));
   }

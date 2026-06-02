@@ -1,6 +1,8 @@
 import Phaser from 'phaser';
 import { GAME_HEIGHT, GAME_WIDTH, TILE_SIZE } from '../data/constants';
+import { FERN_TRAIL_FIELD_ZONE, type EncounterResult, type EncounterZoneDefinition } from '../data/encounters';
 import { loadPlayerState, updatePlayerPosition } from '../data/playerState';
+import { EncounterZoneChecker } from '../systems/EncounterZoneChecker';
 import { GridMover } from '../systems/GridMover';
 import { DebugPanel } from '../ui/DebugPanel';
 import { DialogueBox } from '../ui/DialogueBox';
@@ -9,46 +11,43 @@ import type { Direction, TilePosition } from '../types/grid';
 
 const MAP_WIDTH = GAME_WIDTH / TILE_SIZE;
 const MAP_HEIGHT = GAME_HEIGHT / TILE_SIZE;
-const START_TILE: TilePosition = { x: 9, y: 9 };
-const LAB_DOOR_TILE: TilePosition = { x: 7, y: 5 };
-const LAB_ENTRY_TILE: TilePosition = { x: 9, y: 12 };
-const ROUTE_EXIT_TILE: TilePosition = { x: 18, y: 10 };
-const ROUTE_ENTRY_TILE: TilePosition = { x: 2, y: 7 };
-const DR_SABLE_TILE: TilePosition = { x: 10, y: 7 };
-const DR_SABLE_DIALOGUE =
-  'Welcome to Amberleaf Town! These old roots hide newer mysteries. Our field guide now tracks real prehistoric creatures while final sprite art is prepared.';
+const START_TILE: TilePosition = { x: 2, y: 7 };
+const TOWN_EXIT_TILE: TilePosition = { x: 1, y: 7 };
+const TOWN_RETURN_TILE: TilePosition = { x: 18, y: 10 };
+const SIGN_TILE: TilePosition = { x: 4, y: 6 };
 
 const TERRAIN = [
   'BBBBBBBBBBBBBBBBBBBB',
   'BggggggggggggggggggB',
-  'BgggppppppppgggggggB',
-  'BgggphhhhpppggwwgggB',
-  'BgggphhhhpppggwwgggB',
-  'BgggppppppppggwwgggB',
-  'BggggggppggggggggggB',
-  'BgggffgppgffgggggggB',
-  'BgggffgppgffgggggggB',
-  'BggggggppggggggggggB',
-  'BggppppppppppppggggB',
-  'BggpggggggggggpggggB',
-  'BggpggttggttggpggggB',
+  'BggbbbbggggggbbbbggB',
+  'BggbbbbggttggbbbbggB',
+  'BggggggggttggggggggB',
+  'BgggttggggggggttgggB',
+  'BggggggggppggggggggB',
+  'BppppppppppppppppppB',
+  'BggggggggppggggggggB',
+  'BggbbbbggggggbbbbggB',
+  'BggbbbbggwwggbbbbggB',
+  'BggggggggwwggggggggB',
+  'BgggttggggggggttgggB',
   'BggggggggggggggggggB',
   'BBBBBBBBBBBBBBBBBBBB'
 ] as const;
 
-export class AmberleafTownScene extends Phaser.Scene {
+export class FernTrailScene extends Phaser.Scene {
   private player?: GridMover;
   private debugPanel?: DebugPanel;
   private dialogueBox?: DialogueBox;
   private partyMenu?: PartyMenu;
+  private encounterChecker?: EncounterZoneChecker;
   private movementKeys?: Record<Direction, Phaser.Input.Keyboard.Key[]>;
   private interactKeys?: Phaser.Input.Keyboard.Key[];
   private partyKeys?: Phaser.Input.Keyboard.Key[];
   private escapeKey?: Phaser.Input.Keyboard.Key;
-  private npcTiles = new Map<string, { name: string; dialogue: string }>();
+  private readonly signTiles = new Map<string, { name: string; dialogue: string }>();
 
   constructor() {
-    super('AmberleafTownScene');
+    super('FernTrailScene');
   }
 
   preload(): void {
@@ -56,15 +55,16 @@ export class AmberleafTownScene extends Phaser.Scene {
   }
 
   create(): void {
-    this.cameras.main.setBackgroundColor('#223324');
+    this.cameras.main.setBackgroundColor('#25351f');
     this.drawMap();
-    this.createNpc();
+    this.createSigns();
+    this.encounterChecker = new EncounterZoneChecker({ zonesByTile: this.createEncounterZones() });
 
-    const savedState = loadPlayerState({ currentMap: 'AmberleafTownScene', currentPosition: START_TILE });
+    const savedState = loadPlayerState({ currentMap: 'FernTrailScene', currentPosition: START_TILE });
     const savedStartTile = this.getValidStartTile(
-      savedState.currentMap === 'AmberleafTownScene' ? savedState.currentPosition : START_TILE
+      savedState.currentMap === 'FernTrailScene' ? savedState.currentPosition : START_TILE
     );
-    const playerSprite = this.add.sprite(0, 0, 'player').setDepth(5);
+    const playerSprite = this.add.sprite(0, 0, 'trail-player').setDepth(5);
     this.player = new GridMover({
       sprite: playerSprite,
       startTile: savedStartTile,
@@ -110,7 +110,7 @@ export class AmberleafTownScene extends Phaser.Scene {
       if (this.dialogueBox.isOpen()) {
         this.dialogueBox.hide();
       } else {
-        this.tryTalkToNpc();
+        this.tryReadSign();
       }
       return;
     }
@@ -127,7 +127,7 @@ export class AmberleafTownScene extends Phaser.Scene {
   }
 
   private createPlaceholderSprites(): void {
-    const playerCanvas = this.textures.createCanvas('player', TILE_SIZE, TILE_SIZE);
+    const playerCanvas = this.textures.createCanvas('trail-player', TILE_SIZE, TILE_SIZE);
     const playerContext = playerCanvas?.getContext();
 
     if (playerCanvas && playerContext) {
@@ -146,25 +146,6 @@ export class AmberleafTownScene extends Phaser.Scene {
       playerContext.fillRect(18, 27, 6, 4);
       playerCanvas.refresh();
     }
-
-    const npcCanvas = this.textures.createCanvas('dr-sable', TILE_SIZE, TILE_SIZE);
-    const npcContext = npcCanvas?.getContext();
-
-    if (npcCanvas && npcContext) {
-      npcContext.fillStyle = '#00000033';
-      npcContext.fillRect(6, 28, 20, 4);
-      npcContext.fillStyle = '#3c2f2f';
-      npcContext.fillRect(8, 5, 16, 8);
-      npcContext.fillStyle = '#d6aa78';
-      npcContext.fillRect(10, 8, 12, 10);
-      npcContext.fillStyle = '#f8f3df';
-      npcContext.fillRect(7, 17, 18, 13);
-      npcContext.fillStyle = '#6c7f43';
-      npcContext.fillRect(13, 19, 6, 9);
-      npcContext.fillStyle = '#d99c3b';
-      npcContext.fillRect(21, 19, 3, 8);
-      npcCanvas.refresh();
-    }
   }
 
   private drawMap(): void {
@@ -173,17 +154,16 @@ export class AmberleafTownScene extends Phaser.Scene {
         const tile = TERRAIN[y][x];
         const centerX = x * TILE_SIZE + TILE_SIZE / 2;
         const centerY = y * TILE_SIZE + TILE_SIZE / 2;
-        const color = this.getTileColor(tile);
 
-        this.add.rectangle(centerX, centerY, TILE_SIZE, TILE_SIZE, color);
+        this.add.rectangle(centerX, centerY, TILE_SIZE, TILE_SIZE, this.getTileColor(tile));
         this.add.rectangle(centerX, centerY + 12, TILE_SIZE, 8, 0x000000, 0.06);
         this.add.rectangle(centerX, centerY, TILE_SIZE, TILE_SIZE, 0x000000, 0).setStrokeStyle(1, 0x000000, 0.08);
 
-        if (tile === 'h') {
-          this.add.rectangle(centerX, centerY - 3, 27, 20, 0x9a5f2d);
-          this.add.rectangle(centerX, centerY - 13, 29, 8, 0x6f4b2f);
-          this.add.rectangle(centerX, centerY + 9, 10, 10, 0x593928);
-          this.add.rectangle(centerX + 8, centerY + 1, 5, 5, 0xf0c878);
+        if (tile === 'b') {
+          this.add.rectangle(centerX - 6, centerY + 4, 4, 18, 0x386641);
+          this.add.rectangle(centerX, centerY + 2, 4, 20, 0x4f7d3a);
+          this.add.rectangle(centerX + 7, centerY + 5, 4, 16, 0x6c7f43);
+          this.add.rectangle(centerX, centerY + 10, 26, 5, 0x243b2a, 0.28);
         }
 
         if (tile === 't') {
@@ -192,21 +172,8 @@ export class AmberleafTownScene extends Phaser.Scene {
           this.add.rectangle(centerX, centerY + 9, 6, 12, 0x7a4f2b);
         }
 
-        if (tile === 'f') {
-          this.add.rectangle(centerX, centerY + 1, 25, 8, 0x8a6a3d);
-          this.add.rectangle(centerX, centerY - 3, 25, 3, 0xb4874d);
-        }
-
-        if (x === LAB_DOOR_TILE.x && y === LAB_DOOR_TILE.y) {
-          this.add.rectangle(centerX, centerY - 8, 30, 20, 0x8a6a3d);
-          this.add.rectangle(centerX, centerY - 18, 34, 10, 0x6f4b2f);
-          this.add.rectangle(centerX, centerY + 4, 12, 16, 0x2d1f16);
-          this.add.circle(centerX + 4, centerY + 4, 1.5, 0xd99c3b);
-        }
-
-        if (x === ROUTE_EXIT_TILE.x && y === ROUTE_EXIT_TILE.y) {
-          this.add.rectangle(centerX + 7, centerY, 12, 28, 0xd6ad6a, 0.75);
-          this.add.rectangle(centerX + 12, centerY, 5, 22, 0xf0c878, 0.75);
+        if (tile === 'w') {
+          this.add.rectangle(centerX, centerY + 6, TILE_SIZE, 5, 0xffffff, 0.16);
         }
       }
     }
@@ -218,56 +185,30 @@ export class AmberleafTownScene extends Phaser.Scene {
         return 0x243b2a;
       case 'p':
         return 0xd6ad6a;
-      case 'h':
-        return 0xbf7d36;
-      case 'w':
-        return 0x4f8cad;
-      case 'f':
-        return 0x8a6a3d;
+      case 'b':
+        return 0x4f7d3a;
       case 't':
         return 0x386641;
+      case 'w':
+        return 0x4f8cad;
       default:
         return 0x739f4f;
     }
   }
 
-  private createNpc(): void {
-    this.add.sprite(
-      DR_SABLE_TILE.x * TILE_SIZE + TILE_SIZE / 2,
-      DR_SABLE_TILE.y * TILE_SIZE + TILE_SIZE / 2,
-      'dr-sable'
-    ).setDepth(4);
-    this.add.text(DR_SABLE_TILE.x * TILE_SIZE - 28, DR_SABLE_TILE.y * TILE_SIZE - 30, 'Dr. Sable', {
-      backgroundColor: 'rgba(23, 37, 29, 0.78)',
-      color: '#f8f3df',
-      fontFamily: 'monospace',
-      fontSize: '12px',
-      padding: { x: 4, y: 2 }
-    }).setDepth(6);
-    this.npcTiles.set(this.tileKey(DR_SABLE_TILE), {
-      name: 'Dr. Sable',
-      dialogue: DR_SABLE_DIALOGUE
+  private createSigns(): void {
+    const signX = SIGN_TILE.x * TILE_SIZE + TILE_SIZE / 2;
+    const signY = SIGN_TILE.y * TILE_SIZE + TILE_SIZE / 2;
+    this.add.rectangle(signX, signY - 4, 22, 14, 0x8a6a3d).setDepth(3);
+    this.add.rectangle(signX, signY + 8, 5, 16, 0x593928).setDepth(2);
+    this.signTiles.set(this.tileKey(SIGN_TILE), {
+      name: 'Trail Marker',
+      dialogue: 'Fern Trail: fossil brush ahead. Encounter data is temporary scaffolding for future prehistoric wildlife systems.'
     });
-
-    this.add.text(LAB_DOOR_TILE.x * TILE_SIZE - 34, LAB_DOOR_TILE.y * TILE_SIZE - 36, 'Research Lab', {
-      backgroundColor: 'rgba(23, 37, 29, 0.78)',
-      color: '#f8f3df',
-      fontFamily: 'monospace',
-      fontSize: '11px',
-      padding: { x: 4, y: 2 }
-    }).setDepth(6);
-
-    this.add.text(ROUTE_EXIT_TILE.x * TILE_SIZE - 58, ROUTE_EXIT_TILE.y * TILE_SIZE - 30, 'Fern Trail →', {
-      backgroundColor: 'rgba(23, 37, 29, 0.78)',
-      color: '#f8f3df',
-      fontFamily: 'monospace',
-      fontSize: '11px',
-      padding: { x: 4, y: 2 }
-    }).setDepth(6);
   }
 
   private addLocationLabel(): void {
-    const label = this.add.text(320, 46, 'Amberleaf Town', {
+    const label = this.add.text(320, 46, 'Fern Trail', {
       backgroundColor: 'rgba(248, 243, 223, 0.92)',
       color: '#2d4632',
       fontFamily: 'monospace',
@@ -293,27 +234,12 @@ export class AmberleafTownScene extends Phaser.Scene {
     }
 
     this.movementKeys = {
-      up: [
-        keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.UP),
-        keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W)
-      ],
-      down: [
-        keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.DOWN),
-        keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S)
-      ],
-      left: [
-        keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.LEFT),
-        keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A)
-      ],
-      right: [
-        keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.RIGHT),
-        keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D)
-      ]
+      up: [keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.UP), keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W)],
+      down: [keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.DOWN), keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S)],
+      left: [keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.LEFT), keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A)],
+      right: [keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.RIGHT), keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D)]
     };
-    this.interactKeys = [
-      keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE),
-      keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E)
-    ];
+    this.interactKeys = [keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE), keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E)];
     this.partyKeys = [keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.P)];
     this.escapeKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
   }
@@ -343,32 +269,55 @@ export class AmberleafTownScene extends Phaser.Scene {
     return this.escapeKey ? Phaser.Input.Keyboard.JustDown(this.escapeKey) : false;
   }
 
-  private tryTalkToNpc(): void {
+  private tryReadSign(): void {
     if (!this.player || !this.dialogueBox) {
       return;
     }
 
-    const npc = this.npcTiles.get(this.tileKey(this.player.getFacingTile()));
+    const sign = this.signTiles.get(this.tileKey(this.player.getFacingTile()));
 
-    if (npc) {
-      this.dialogueBox.show(npc.name, npc.dialogue);
+    if (sign) {
+      this.dialogueBox.show(sign.name, sign.dialogue);
     }
   }
 
   private handleMoveComplete(tile: TilePosition): void {
-    if (this.tileKey(tile) === this.tileKey(LAB_DOOR_TILE)) {
-      updatePlayerPosition('LabScene', LAB_ENTRY_TILE);
-      this.scene.start('LabScene');
+    if (this.tileKey(tile) === this.tileKey(TOWN_EXIT_TILE)) {
+      updatePlayerPosition('AmberleafTownScene', TOWN_RETURN_TILE);
+      this.scene.start('AmberleafTownScene');
       return;
     }
 
-    if (this.tileKey(tile) === this.tileKey(ROUTE_EXIT_TILE)) {
-      updatePlayerPosition('FernTrailScene', ROUTE_ENTRY_TILE);
-      this.scene.start('FernTrailScene');
+    updatePlayerPosition('FernTrailScene', tile);
+    this.tryStartEncounter(tile);
+  }
+
+  private tryStartEncounter(tile: TilePosition): void {
+    const encounter = this.encounterChecker?.checkStep(tile);
+
+    if (!encounter) {
       return;
     }
 
-    updatePlayerPosition('AmberleafTownScene', tile);
+    this.scene.start('EncounterScene', {
+      encounter,
+      returnMap: 'FernTrailScene',
+      returnPosition: tile
+    });
+  }
+
+  private createEncounterZones(): Map<string, EncounterZoneDefinition> {
+    const zones = new Map<string, EncounterZoneDefinition>();
+
+    for (let y = 0; y < MAP_HEIGHT; y += 1) {
+      for (let x = 0; x < MAP_WIDTH; x += 1) {
+        if (TERRAIN[y][x] === 'b') {
+          zones.set(this.tileKey({ x, y }), FERN_TRAIL_FIELD_ZONE);
+        }
+      }
+    }
+
+    return zones;
   }
 
   private canEnterTile(tile: TilePosition): boolean {
@@ -377,9 +326,9 @@ export class AmberleafTownScene extends Phaser.Scene {
     }
 
     const terrain = TERRAIN[tile.y][tile.x];
-    const blockedTerrain = terrain === 'B' || terrain === 'h' || terrain === 'w' || terrain === 'f' || terrain === 't';
+    const blockedTerrain = terrain === 'B' || terrain === 't' || terrain === 'w';
 
-    return !blockedTerrain && !this.npcTiles.has(this.tileKey(tile));
+    return !blockedTerrain && !this.signTiles.has(this.tileKey(tile));
   }
 
   private getValidStartTile(candidate: TilePosition): TilePosition {
