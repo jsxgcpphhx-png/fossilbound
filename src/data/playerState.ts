@@ -1,5 +1,6 @@
 import { SAVE_KEY } from './constants';
 import { EARLY_GAME_DINOSAURS } from './dinosaurs';
+import { createStartingInventory, normalizeInventory, type InventoryQuantities } from './inventory';
 import type { TilePosition } from '../types/grid';
 
 export type MapId = 'AmberleafTownScene' | 'LabScene' | 'FernTrailScene';
@@ -17,7 +18,7 @@ export interface PlayerState {
   currentPosition: TilePosition;
   selectedCreatureId?: string;
   partyCreatures: PartyCreatureState[];
-  inventory: Record<string, number>;
+  inventory: InventoryQuantities;
   storyFlags: Record<string, boolean>;
 }
 
@@ -32,7 +33,7 @@ const DEFAULT_PLAYER_STATE: PlayerState = {
   currentPosition: { x: 9, y: 9 },
   selectedCreatureId: undefined,
   partyCreatures: [],
-  inventory: {},
+  inventory: createStartingInventory(),
   storyFlags: {}
 };
 
@@ -99,6 +100,42 @@ export function selectCreature(dinosaurId: string): PlayerState {
   return updatedState;
 }
 
+
+export interface TemporaryDebugAddCreatureResult {
+  added: boolean;
+  message: string;
+}
+
+export const TEMPORARY_PARTY_LIMIT = 6;
+
+export function addTemporaryDebugCreatureToParty(dinosaurId: string): TemporaryDebugAddCreatureResult {
+  const state = loadPlayerState();
+
+  if (!isKnownDinosaurId(dinosaurId)) {
+    return { added: false, message: 'Debug scaffold could not find this placeholder creature in current data.' };
+  }
+
+  if (state.partyCreatures.length >= TEMPORARY_PARTY_LIMIT) {
+    return { added: false, message: 'Party is full. Placeholder storage is not implemented yet.' };
+  }
+
+  const updatedState = normalizePlayerState({
+    ...state,
+    selectedCreatureId: state.selectedCreatureId ?? dinosaurId,
+    partyCreatures: [
+      ...state.partyCreatures,
+      {
+        instanceId: createCreatureInstanceId(dinosaurId),
+        dinosaurId
+      }
+    ],
+    storyFlags: { ...state.storyFlags, usedTemporaryDebugAddCreature: true }
+  });
+
+  savePlayerState(updatedState);
+  return { added: true, message: `Debug scaffold added ${getKnownDinosaurName(dinosaurId)} to the party. This is not final capture.` };
+}
+
 export function getKnownDinosaurName(dinosaurId: string): string {
   return EARLY_GAME_DINOSAURS.find((dinosaur) => dinosaur.id === dinosaurId)?.displayName ?? dinosaurId;
 }
@@ -122,7 +159,7 @@ function normalizePlayerState(candidate: Partial<PlayerState>): PlayerState {
     currentPosition,
     selectedCreatureId,
     partyCreatures,
-    inventory: isRecord(candidate.inventory) ? candidate.inventory : {},
+    inventory: normalizeInventory(candidate.inventory, DEFAULT_PLAYER_STATE.inventory),
     storyFlags: isBooleanRecord(candidate.storyFlags) ? candidate.storyFlags : {}
   };
 }
@@ -153,9 +190,6 @@ function isPartyCreatureState(candidate: unknown): candidate is PartyCreatureSta
   return typeof creature.instanceId === 'string' && isKnownDinosaurId(creature.dinosaurId);
 }
 
-function isRecord(candidate: unknown): candidate is Record<string, number> {
-  return Boolean(candidate) && typeof candidate === 'object' && !Array.isArray(candidate);
-}
 
 function isBooleanRecord(candidate: unknown): candidate is Record<string, boolean> {
   return Boolean(candidate) && typeof candidate === 'object' && !Array.isArray(candidate);
