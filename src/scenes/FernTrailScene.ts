@@ -80,7 +80,7 @@ export class FernTrailScene extends Phaser.Scene {
         }
 
         updatePlayerPosition('FernTrailScene', this.player.currentTile);
-        this.scene.start('EncounterScene', encounter);
+        this.scene.start('BattleScene', { ...encounter, returnPosition: this.player.currentTile });
       }
     });
     this.debugPanel = new DebugPanel(this);
