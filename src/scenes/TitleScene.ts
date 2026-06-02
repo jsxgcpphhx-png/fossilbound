@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { EARLY_GAME_DINOSAURS } from '../data/dinosaurs';
+import { createDefaultPlayerState, clearPlayerState, hasSavedPlayerState, loadPlayerState, savePlayerState } from '../data/playerState';
 
 export class TitleScene extends Phaser.Scene {
   constructor() {
@@ -38,7 +39,8 @@ export class TitleScene extends Phaser.Scene {
       fontSize: '22px'
     }).setOrigin(0.5);
 
-    const startText = this.add.text(320, 330, 'Press Enter or Click to Start', {
+    const hasSave = hasSavedPlayerState();
+    const startText = this.add.text(320, 326, hasSave ? 'Enter/Click: Continue   N: New' : 'Press Enter or Click to Start', {
       color: '#f8f3df',
       fontFamily: 'monospace',
       fontSize: '20px'
@@ -68,11 +70,32 @@ export class TitleScene extends Phaser.Scene {
       fontSize: '11px'
     }).setOrigin(0.5);
 
-    this.input.keyboard?.once('keydown-ENTER', () => this.startGame());
-    this.input.once('pointerdown', () => this.startGame());
+    if (hasSave) {
+      this.add.text(320, 356, 'Continue option appears because local save data exists.', {
+        color: '#aebf7a',
+        fontFamily: 'monospace',
+        fontSize: '13px'
+      }).setOrigin(0.5);
+    }
+
+    this.input.keyboard?.once('keydown-ENTER', () => this.continueGame());
+    this.input.keyboard?.once('keydown-N', () => this.startNewGame());
+    this.input.once('pointerdown', () => this.continueGame());
   }
 
-  private startGame(): void {
+  private continueGame(): void {
+    const state = hasSavedPlayerState() ? loadPlayerState() : createDefaultPlayerState();
+
+    if (!hasSavedPlayerState()) {
+      savePlayerState(state);
+    }
+
+    this.scene.start(state.currentMap);
+  }
+
+  private startNewGame(): void {
+    clearPlayerState();
+    savePlayerState(createDefaultPlayerState());
     this.scene.start('AmberleafTownScene');
   }
 }

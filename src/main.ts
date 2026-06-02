@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import './style.css';
 import { GAME_HEIGHT, GAME_WIDTH } from './data/constants';
 import { AmberleafTownScene } from './scenes/AmberleafTownScene';
+import { LabScene } from './scenes/LabScene';
 import { TitleScene } from './scenes/TitleScene';
 
 const config: Phaser.Types.Core.GameConfig = {
@@ -15,7 +16,7 @@ const config: Phaser.Types.Core.GameConfig = {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH
   },
-  scene: [TitleScene, AmberleafTownScene]
+  scene: [TitleScene, AmberleafTownScene, LabScene]
 };
 
 new Phaser.Game(config);
