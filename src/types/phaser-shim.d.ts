@@ -74,7 +74,7 @@ declare namespace Phaser {
         };
         once(eventName: string, callback: () => void): void;
       };
-      scene: { start(sceneKey: string): void };
+      scene: { start(sceneKey: string, data?: unknown): void };
       tweens: { add(config: Record<string, unknown>): void };
     }
 

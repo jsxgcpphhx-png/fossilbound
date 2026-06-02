@@ -2,7 +2,7 @@ import { SAVE_KEY } from './constants';
 import { EARLY_GAME_DINOSAURS } from './dinosaurs';
 import type { TilePosition } from '../types/grid';
 
-export type MapId = 'AmberleafTownScene' | 'LabScene';
+export type MapId = 'AmberleafTownScene' | 'LabScene' | 'FernTrailScene';
 
 export interface PartyCreatureState {
   instanceId: string;
@@ -137,7 +137,7 @@ function isTilePosition(candidate: unknown): candidate is TilePosition {
 }
 
 function isMapId(candidate: unknown): candidate is MapId {
-  return candidate === 'AmberleafTownScene' || candidate === 'LabScene';
+  return candidate === 'AmberleafTownScene' || candidate === 'LabScene' || candidate === 'FernTrailScene';
 }
 
 function isKnownDinosaurId(candidate: unknown): candidate is string {
