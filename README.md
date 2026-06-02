@@ -1,6 +1,6 @@
 # Fossilbound
 
-Fossilbound is a browser-based dinosaur-catching RPG prototype inspired by classic handheld monster-catching RPGs. It uses original names, setting, story setup, UI, and placeholder-only art.
+Fossilbound is a browser-based prehistoric creature RPG prototype inspired by classic handheld adventure pacing. It uses original setting, story setup, UI, and placeholder-only art while keeping its creatures grounded in recognizable prehistoric animal names.
 
 ## Milestone 1 Features
 
@@ -8,6 +8,9 @@ Fossilbound is a browser-based dinosaur-catching RPG prototype inspired by class
 - Title screen with keyboard and mouse start controls.
 - Playable overworld map: **Amberleaf Town**.
 - Placeholder player character.
+- Visual direction documentation for a warm 2.5D pixel-art overworld and naturalistic prehistoric creatures.
+- Starter asset pipeline folders for dinosaur battle sprites, overworld sprites, tiles, and UI.
+- Early dinosaur data model entries for Triceratops, Velociraptor, Pteranodon, Ankylosaurus, Parasaurolophus, and Spinosaurus.
 - Grid/tile-based top-down movement.
 - Collision boundaries for map edges, buildings, water, fences, trees, and NPCs.
 - One NPC: **Dr. Sable**.
