@@ -72,7 +72,14 @@ export class LabScene extends Phaser.Scene {
 
     this.debugPanel = new DebugPanel(this);
     this.dialogueBox = new DialogueBox(this);
-    this.partyMenu = new PartyMenu(this);
+    this.partyMenu = new PartyMenu(this, {
+      currentMap: 'LabScene',
+      getCurrentPosition: () => this.player?.currentTile ?? savedStartTile,
+      onTravelToIslandBase: () => {
+        this.dialogueBox?.show('Quetzalcoatlus', 'Quetzalcoatlus carries you toward your island base.');
+        this.scene.start('IslandBaseScene');
+      }
+    });
     this.selectionPanel = new CreatureSelectionPanel(this, {
       creatures: PLACEHOLDER_SELECTION_CREATURES,
       onChoose: (creature) => {
@@ -91,6 +98,7 @@ export class LabScene extends Phaser.Scene {
     }
 
     this.debugPanel.update(this.player.currentTile);
+    this.partyMenu.update();
 
     if (this.selectionPanel.isOpen()) {
       this.handleSelectionControls();

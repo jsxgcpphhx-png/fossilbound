@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { GAME_HEIGHT, GAME_WIDTH, TILE_SIZE } from '../data/constants';
 import { loadPlayerState, updatePlayerPosition } from '../data/playerState';
+import { FollowerSprite } from '../systems/FollowerSprite';
 import { GridMover } from '../systems/GridMover';
 import { DebugPanel } from '../ui/DebugPanel';
 import { DialogueBox } from '../ui/DialogueBox';
@@ -41,6 +42,8 @@ export class AmberleafTownScene extends Phaser.Scene {
   private debugPanel?: DebugPanel;
   private dialogueBox?: DialogueBox;
   private partyMenu?: PartyMenu;
+  private follower?: FollowerSprite;
+  private previousPlayerTile?: TilePosition;
   private movementKeys?: Record<Direction, Phaser.Input.Keyboard.Key[]>;
   private interactKeys?: Phaser.Input.Keyboard.Key[];
   private partyKeys?: Phaser.Input.Keyboard.Key[];
@@ -72,9 +75,17 @@ export class AmberleafTownScene extends Phaser.Scene {
       onMoveComplete: (tile) => this.handleMoveComplete(tile)
     });
 
+    this.follower = FollowerSprite.shouldCreate() ? new FollowerSprite(this, savedStartTile) : undefined;
     this.debugPanel = new DebugPanel(this);
     this.dialogueBox = new DialogueBox(this);
-    this.partyMenu = new PartyMenu(this);
+    this.partyMenu = new PartyMenu(this, {
+      currentMap: 'AmberleafTownScene',
+      getCurrentPosition: () => this.player?.currentTile ?? savedStartTile,
+      onTravelToIslandBase: () => {
+        this.dialogueBox?.show('Quetzalcoatlus', 'Quetzalcoatlus carries you toward your island base.');
+        this.scene.start('IslandBaseScene');
+      }
+    });
     this.registerControls();
     this.addLocationLabel();
   }
@@ -85,6 +96,7 @@ export class AmberleafTownScene extends Phaser.Scene {
     }
 
     this.debugPanel.update(this.player.currentTile);
+    this.partyMenu.update();
 
     if (this.isPartyMenuPressed()) {
       if (this.dialogueBox.isOpen()) {
@@ -122,6 +134,7 @@ export class AmberleafTownScene extends Phaser.Scene {
     const direction = this.getPressedDirection();
 
     if (direction) {
+      this.previousPlayerTile = this.player.currentTile;
       this.player.tryMove(direction);
     }
   }
@@ -351,6 +364,9 @@ export class AmberleafTownScene extends Phaser.Scene {
   }
 
   private handleMoveComplete(tile: TilePosition): void {
+    if (this.previousPlayerTile) {
+      this.follower?.moveTo(this.previousPlayerTile);
+    }
     if (this.tileKey(tile) === this.tileKey(LAB_DOOR_TILE)) {
       updatePlayerPosition('LabScene', LAB_ENTRY_TILE);
       this.scene.start('LabScene');

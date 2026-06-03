@@ -15,7 +15,7 @@ import { TEMPORARY_MOVE_LIKE_ENTRIES } from '../data/battle/temporaryMoveLikeEnt
 import { EARLY_GAME_DINOSAURS, type DinosaurDefinition } from '../data/dinosaurs';
 import type { EncounterPreview } from '../data/encounters';
 import { getInventoryCategoryLabel, getInventoryEntries, type InventoryEntry } from '../data/inventory';
-import { addTemporaryDebugCreatureToParty, getKnownDinosaurName, loadPlayerState, updatePlayerPosition } from '../data/playerState';
+import { addTemporaryDebugCreatureToParty, getCreatureByInstanceId, getKnownDinosaurName, loadPlayerState, updatePlayerPosition } from '../data/playerState';
 import type { TilePosition } from '../types/grid';
 
 type MainBattleMenuOption = 'Observe' | 'Actions' | 'Field Pack' | 'Flee';
@@ -138,11 +138,10 @@ export class BattleScene extends Phaser.Scene {
 
   private createPlayerParticipant(): BattleParticipant {
     const state = loadPlayerState();
-    const selectedPartyCreature = state.partyCreatures.find((creature) => creature.dinosaurId === state.selectedCreatureId)
-      ?? state.partyCreatures[0];
-    const dinosaur = selectedPartyCreature ? this.getDinosaur(selectedPartyCreature.dinosaurId) : undefined;
-    const fallbackName = state.selectedCreatureId
-      ? getKnownDinosaurName(state.selectedCreatureId)
+    const leadCreature = getCreatureByInstanceId(state, state.leadCreatureId);
+    const dinosaur = leadCreature ? this.getDinosaur(leadCreature.dinosaurId) : undefined;
+    const fallbackName = leadCreature
+      ? getKnownDinosaurName(leadCreature.dinosaurId)
       : TEMPORARY_BATTLE_CONFIG.defaultPlayerCreatureName;
 
     return {
@@ -151,7 +150,7 @@ export class BattleScene extends Phaser.Scene {
       label: 'Field Team',
       creature: this.createCreatureInstance({
         role: 'player',
-        instanceId: selectedPartyCreature?.instanceId ?? 'player-placeholder-creature',
+        instanceId: leadCreature?.instanceId ?? 'player-placeholder-creature',
         dinosaur,
         fallbackName,
         placeholderHpStatus: TEMPORARY_BATTLE_CONFIG.placeholderHp.player
