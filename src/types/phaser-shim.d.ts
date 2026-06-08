@@ -7,6 +7,14 @@ declare namespace Phaser {
           [key: string]: unknown;
         }
       }
+
+      namespace GameObjects {
+        namespace Text {
+          interface TextStyle {
+            [key: string]: unknown;
+          }
+        }
+      }
     }
 
     namespace Scale {
@@ -42,6 +50,7 @@ declare namespace Phaser {
       }
 
       interface Rectangle extends GameObject {}
+      interface Shape extends GameObject {}
       interface Text extends GameObject {
         setText(text: string): this;
       }
@@ -63,6 +72,9 @@ declare namespace Phaser {
         circle(x: number, y: number, radius: number, color: number, alpha?: number): GameObjects.GameObject;
         group(children: unknown[]): GameObjects.Group;
         rectangle(x: number, y: number, width: number, height: number, color: number, alpha?: number): GameObjects.Rectangle;
+        ellipse(x: number, y: number, width: number, height: number, color: number, alpha?: number): GameObjects.Shape;
+        triangle(x: number, y: number, x1: number, y1: number, x2: number, y2: number, x3: number, y3: number, color: number, alpha?: number): GameObjects.Shape;
+        line(x: number, y: number, x1: number, y1: number, x2: number, y2: number, color: number, alpha?: number): GameObjects.Shape;
         sprite(x: number, y: number, key: string): GameObjects.Sprite;
         text(x: number, y: number, text: string, style?: object): GameObjects.Text;
       };

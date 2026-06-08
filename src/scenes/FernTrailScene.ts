@@ -5,6 +5,7 @@ import { loadPlayerState, updatePlayerPosition } from '../data/playerState';
 import { EncounterZoneSystem } from '../systems/EncounterZoneSystem';
 import { FollowerSprite } from '../systems/FollowerSprite';
 import { GridMover } from '../systems/GridMover';
+import { createOverworldCharacterTextures } from '../systems/PixelPlaceholderSprites';
 import { DebugPanel } from '../ui/DebugPanel';
 import { DialogueBox } from '../ui/DialogueBox';
 import { PartyMenu } from '../ui/PartyMenu';
@@ -15,6 +16,8 @@ const MAP_HEIGHT = GAME_HEIGHT / TILE_SIZE;
 const START_TILE: TilePosition = { x: 1, y: 8 };
 const TOWN_EXIT_TILE: TilePosition = { x: 0, y: 8 };
 const AMBERLEAF_RETURN_TILE: TilePosition = { x: 18, y: 10 };
+const MOSSBANK_EXIT_TILE: TilePosition = { x: 19, y: 10 };
+const MOSSBANK_ENTRY_TILE: TilePosition = { x: 1, y: 7 };
 
 const TERRAIN = [
   'BBBBBBBBBBBBBBBBBBBB',
@@ -154,25 +157,7 @@ export class FernTrailScene extends Phaser.Scene {
   }
 
   private createPlaceholderSprites(): void {
-    const playerCanvas = this.textures.createCanvas('player', TILE_SIZE, TILE_SIZE);
-    const playerContext = playerCanvas?.getContext();
-
-    if (playerCanvas && playerContext) {
-      playerContext.fillStyle = '#00000033';
-      playerContext.fillRect(7, 27, 18, 4);
-      playerContext.fillStyle = '#274c77';
-      playerContext.fillRect(9, 10, 14, 18);
-      playerContext.fillStyle = '#8a6a3d';
-      playerContext.fillRect(7, 8, 18, 7);
-      playerContext.fillStyle = '#f1c27d';
-      playerContext.fillRect(10, 4, 12, 10);
-      playerContext.fillStyle = '#d99c3b';
-      playerContext.fillRect(12, 15, 8, 3);
-      playerContext.fillStyle = '#f8f3df';
-      playerContext.fillRect(8, 27, 6, 4);
-      playerContext.fillRect(18, 27, 6, 4);
-      playerCanvas.refresh();
-    }
+    createOverworldCharacterTextures(this);
   }
 
   private drawMap(): void {
@@ -232,7 +217,7 @@ export class FernTrailScene extends Phaser.Scene {
       fontSize: '11px',
       padding: { x: 4, y: 2 }
     }).setDepth(6);
-    this.add.text(460, 320, 'Fossil Brush\n(test encounters)', {
+    this.add.text(460, 320, 'Mossbank Village →\nFossil Brush', {
       align: 'center',
       backgroundColor: 'rgba(23, 37, 29, 0.78)',
       color: '#f0c878',
@@ -314,6 +299,12 @@ export class FernTrailScene extends Phaser.Scene {
     if (this.tileKey(tile) === this.tileKey(TOWN_EXIT_TILE)) {
       updatePlayerPosition('AmberleafTownScene', AMBERLEAF_RETURN_TILE);
       this.scene.start('AmberleafTownScene');
+      return;
+    }
+
+    if (this.tileKey(tile) === this.tileKey(MOSSBANK_EXIT_TILE)) {
+      updatePlayerPosition('MossbankVillageScene', MOSSBANK_ENTRY_TILE);
+      this.scene.start('MossbankVillageScene');
       return;
     }
 
