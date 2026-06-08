@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" role="img" aria-label="Temporary generated dinosaur silhouette placeholder">
   <title>Temporary generated dinosaur silhouette placeholder</title>
-  <desc>Flat silhouette block-in for pipeline testing only. Replace with final pixel art later.</desc>
+  <desc>Generated shaded silhouette block-in for pipeline testing only. Replace with final pixel art later.</desc>
   <ellipse cx="16" cy="27" rx="11" ry="3" fill="#00000033"/><path d="M8 18h12c5 0 8 3 9 7H9c-5 0-7-4-1-7Z" fill="#243126"/><path d="M21 14l8 3-2 7-9-2v-6Z" fill="#243126"/><path d="M27 13l5-3-3 6Z" fill="#243126"/><path d="M25 17l6-1-6 3Z" fill="#243126"/><rect x="11" y="24" width="3" height="5" fill="#243126"/><rect x="20" y="24" width="3" height="5" fill="#243126"/>
-</svg>
+<path d="M10 19c5-3 12-3 17 1l-2 2H12Z" fill="#39543a" opacity="0.82"/><circle cx="26" cy="18" r="1" fill="#f0c878"/></svg>

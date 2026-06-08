@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { GAME_HEIGHT, GAME_WIDTH } from '../data/constants';
 import { getCreatureByInstanceId, getKnownDinosaurName, loadPlayerState, returnFromIslandBase } from '../data/playerState';
+import { createOverworldCharacterTextures } from '../systems/PixelPlaceholderSprites';
 
 export class IslandBaseScene extends Phaser.Scene {
   private returnKeys?: Phaser.Input.Keyboard.Key[];
@@ -11,6 +12,7 @@ export class IslandBaseScene extends Phaser.Scene {
 
   create(): void {
     this.cameras.main.setBackgroundColor('#18334a');
+    createOverworldCharacterTextures(this);
     this.drawPlaceholderIslandBase();
     this.registerControls();
   }
@@ -36,9 +38,8 @@ export class IslandBaseScene extends Phaser.Scene {
     this.add.rectangle(318, 210, 180, 74, 0x8a6a3d).setStrokeStyle(4, 0x593928);
     this.add.rectangle(318, 168, 208, 34, 0x6f4b2f).setStrokeStyle(3, 0x593928);
     this.add.rectangle(318, 238, 36, 42, 0x2d1f16);
-    this.add.circle(448, 134, 30, 0x243126);
-    this.add.rectangle(420, 138, 86, 16, 0x243126).setRotation(-0.26);
-    this.add.rectangle(486, 122, 50, 12, 0x243126).setRotation(0.2);
+    this.add.sprite(452, 132, 'quetzalcoatlus-placeholder').setDepth(2);
+    this.add.rectangle(452, 164, 104, 10, 0x000000, 0.16).setDepth(1);
     this.add.text(320, 44, 'Island Base — placeholder storage scaffold', {
       align: 'center',
       backgroundColor: 'rgba(248, 243, 223, 0.92)',

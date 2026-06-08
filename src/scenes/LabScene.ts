@@ -3,6 +3,7 @@ import { GAME_HEIGHT, GAME_WIDTH, TILE_SIZE } from '../data/constants';
 import { PLACEHOLDER_SELECTION_CREATURES } from '../data/creatureSelection';
 import { loadPlayerState, selectCreature, updatePlayerPosition } from '../data/playerState';
 import { GridMover } from '../systems/GridMover';
+import { createOverworldCharacterTextures } from '../systems/PixelPlaceholderSprites';
 import { DebugPanel } from '../ui/DebugPanel';
 import { DialogueBox } from '../ui/DialogueBox';
 import { CreatureSelectionPanel } from '../ui/CreatureSelectionPanel';
@@ -146,44 +147,7 @@ export class LabScene extends Phaser.Scene {
   }
 
   private createPlaceholderSprites(): void {
-    const playerCanvas = this.textures.createCanvas('lab-player', TILE_SIZE, TILE_SIZE);
-    const playerContext = playerCanvas?.getContext();
-
-    if (playerCanvas && playerContext) {
-      playerContext.fillStyle = '#00000033';
-      playerContext.fillRect(7, 27, 18, 4);
-      playerContext.fillStyle = '#274c77';
-      playerContext.fillRect(9, 10, 14, 18);
-      playerContext.fillStyle = '#8a6a3d';
-      playerContext.fillRect(7, 8, 18, 7);
-      playerContext.fillStyle = '#f1c27d';
-      playerContext.fillRect(10, 4, 12, 10);
-      playerContext.fillStyle = '#d99c3b';
-      playerContext.fillRect(12, 15, 8, 3);
-      playerContext.fillStyle = '#f8f3df';
-      playerContext.fillRect(8, 27, 6, 4);
-      playerContext.fillRect(18, 27, 6, 4);
-      playerCanvas.refresh();
-    }
-
-    const sableCanvas = this.textures.createCanvas('lab-dr-sable', TILE_SIZE, TILE_SIZE);
-    const sableContext = sableCanvas?.getContext();
-
-    if (sableCanvas && sableContext) {
-      sableContext.fillStyle = '#00000033';
-      sableContext.fillRect(6, 28, 20, 4);
-      sableContext.fillStyle = '#3c2f2f';
-      sableContext.fillRect(8, 5, 16, 8);
-      sableContext.fillStyle = '#d6aa78';
-      sableContext.fillRect(10, 8, 12, 10);
-      sableContext.fillStyle = '#f8f3df';
-      sableContext.fillRect(7, 17, 18, 13);
-      sableContext.fillStyle = '#6c7f43';
-      sableContext.fillRect(13, 19, 6, 9);
-      sableContext.fillStyle = '#d99c3b';
-      sableContext.fillRect(21, 19, 3, 8);
-      sableCanvas.refresh();
-    }
+    createOverworldCharacterTextures(this);
   }
 
   private drawMap(): void {

@@ -3,7 +3,7 @@ import { EARLY_GAME_DINOSAURS } from './dinosaurs';
 import { createStartingInventory, normalizeInventory, type InventoryQuantities } from './inventory';
 import type { TilePosition } from '../types/grid';
 
-export type MapId = 'AmberleafTownScene' | 'LabScene' | 'FernTrailScene' | 'IslandBaseScene';
+export type MapId = 'AmberleafTownScene' | 'LabScene' | 'FernTrailScene' | 'MossbankVillageScene' | 'IslandBaseScene';
 
 export interface PartyCreatureState {
   instanceId: string;
@@ -402,11 +402,11 @@ function isTilePosition(candidate: unknown): candidate is TilePosition {
 }
 
 function isMapId(candidate: unknown): candidate is MapId {
-  return candidate === 'AmberleafTownScene' || candidate === 'LabScene' || candidate === 'FernTrailScene' || candidate === 'IslandBaseScene';
+  return candidate === 'AmberleafTownScene' || candidate === 'LabScene' || candidate === 'FernTrailScene' || candidate === 'MossbankVillageScene' || candidate === 'IslandBaseScene';
 }
 
 function isReturnMapId(candidate: unknown): candidate is Exclude<MapId, 'IslandBaseScene'> {
-  return candidate === 'AmberleafTownScene' || candidate === 'LabScene' || candidate === 'FernTrailScene';
+  return candidate === 'AmberleafTownScene' || candidate === 'LabScene' || candidate === 'FernTrailScene' || candidate === 'MossbankVillageScene';
 }
 
 function isKnownDinosaurId(candidate: unknown): candidate is string {

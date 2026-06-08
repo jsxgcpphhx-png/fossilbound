@@ -3,6 +3,7 @@ import { GAME_HEIGHT, GAME_WIDTH, TILE_SIZE } from '../data/constants';
 import { loadPlayerState, updatePlayerPosition } from '../data/playerState';
 import { FollowerSprite } from '../systems/FollowerSprite';
 import { GridMover } from '../systems/GridMover';
+import { createOverworldCharacterTextures } from '../systems/PixelPlaceholderSprites';
 import { DebugPanel } from '../ui/DebugPanel';
 import { DialogueBox } from '../ui/DialogueBox';
 import { PartyMenu } from '../ui/PartyMenu';
@@ -140,44 +141,7 @@ export class AmberleafTownScene extends Phaser.Scene {
   }
 
   private createPlaceholderSprites(): void {
-    const playerCanvas = this.textures.createCanvas('player', TILE_SIZE, TILE_SIZE);
-    const playerContext = playerCanvas?.getContext();
-
-    if (playerCanvas && playerContext) {
-      playerContext.fillStyle = '#00000033';
-      playerContext.fillRect(7, 27, 18, 4);
-      playerContext.fillStyle = '#274c77';
-      playerContext.fillRect(9, 10, 14, 18);
-      playerContext.fillStyle = '#8a6a3d';
-      playerContext.fillRect(7, 8, 18, 7);
-      playerContext.fillStyle = '#f1c27d';
-      playerContext.fillRect(10, 4, 12, 10);
-      playerContext.fillStyle = '#d99c3b';
-      playerContext.fillRect(12, 15, 8, 3);
-      playerContext.fillStyle = '#f8f3df';
-      playerContext.fillRect(8, 27, 6, 4);
-      playerContext.fillRect(18, 27, 6, 4);
-      playerCanvas.refresh();
-    }
-
-    const npcCanvas = this.textures.createCanvas('dr-sable', TILE_SIZE, TILE_SIZE);
-    const npcContext = npcCanvas?.getContext();
-
-    if (npcCanvas && npcContext) {
-      npcContext.fillStyle = '#00000033';
-      npcContext.fillRect(6, 28, 20, 4);
-      npcContext.fillStyle = '#3c2f2f';
-      npcContext.fillRect(8, 5, 16, 8);
-      npcContext.fillStyle = '#d6aa78';
-      npcContext.fillRect(10, 8, 12, 10);
-      npcContext.fillStyle = '#f8f3df';
-      npcContext.fillRect(7, 17, 18, 13);
-      npcContext.fillStyle = '#6c7f43';
-      npcContext.fillRect(13, 19, 6, 9);
-      npcContext.fillStyle = '#d99c3b';
-      npcContext.fillRect(21, 19, 3, 8);
-      npcCanvas.refresh();
-    }
+    createOverworldCharacterTextures(this);
   }
 
   private drawMap(): void {

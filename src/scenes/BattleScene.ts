@@ -206,27 +206,51 @@ export class BattleScene extends Phaser.Scene {
 
   private drawPlaceholderCreature(participant: BattleParticipant, x: number, y: number, mirrored: boolean): void {
     const bodyColor = participant.role === 'wild' ? 0x243126 : 0x2d4632;
+    const midColor = participant.role === 'wild' ? 0x314634 : 0x3f5f41;
     const accentColor = participant.role === 'wild' ? 0xf0c878 : 0xd99c3b;
     const direction = mirrored ? -1 : 1;
-    const hasCrest = participant.creature.dinosaurId === 'parasaurolophus' || participant.creature.dinosaurId === 'pteranodon';
-    const hasArmor = participant.creature.dinosaurId === 'triceratops' || participant.creature.dinosaurId === 'ankylosaurus';
+    const dinosaurId = participant.creature.dinosaurId;
+    const hasCrest = dinosaurId === 'parasaurolophus' || dinosaurId === 'pteranodon';
+    const hasArmor = dinosaurId === 'triceratops' || dinosaurId === 'ankylosaurus';
+    const hasSail = dinosaurId === 'spinosaurus';
+    const isFlier = dinosaurId === 'pteranodon';
 
-    this.add.circle(x - 42 * direction, y - 2, 34, bodyColor);
-    this.add.rectangle(x, y + 8, 94, 62, bodyColor);
-    this.add.circle(x + 76 * direction, y - 24, 28, bodyColor);
-    this.add.rectangle(x + 111 * direction, y - 24, 44, 18, bodyColor).setRotation(0.15 * direction);
-    this.add.rectangle(x - 86 * direction, y + 2, 74, 18, bodyColor).setRotation(-0.18 * direction);
-    this.add.rectangle(x - 34 * direction, y + 48, 14, 48, bodyColor).setRotation(0.08 * direction);
-    this.add.rectangle(x + 32 * direction, y + 48, 14, 48, bodyColor).setRotation(-0.08 * direction);
-    this.add.circle(x + 92 * direction, y - 30, 3, accentColor);
+    this.add.ellipse(x, y + 74, 210, 30, 0x000000, 0.16);
+
+    if (isFlier) {
+      this.add.triangle(x - 18 * direction, y + 8, 0, 24, 118, -34, 102, 18, bodyColor);
+      this.add.triangle(x + 18 * direction, y + 8, 0, 24, -118, -34, -102, 18, bodyColor);
+      this.add.ellipse(x, y + 10, 58, 22, midColor);
+      this.add.rectangle(x + 42 * direction, y - 8, 54, 12, bodyColor).setRotation(-0.16 * direction);
+      this.add.triangle(x + 78 * direction, y - 12, 0, 0, 42 * direction, -12, 20 * direction, 10, accentColor);
+      this.add.circle(x + 66 * direction, y - 10, 3, accentColor);
+      return;
+    }
+
+    this.add.ellipse(x - 22 * direction, y + 12, 116, 58, bodyColor);
+    this.add.ellipse(x - 18 * direction, y + 3, 92, 34, midColor, 0.64);
+    this.add.ellipse(x + 62 * direction, y - 16, 50, 34, bodyColor);
+    this.add.rectangle(x + 96 * direction, y - 18, 52, 14, bodyColor).setRotation(0.14 * direction);
+    this.add.triangle(x - 88 * direction, y + 10, 0, 0, -64 * direction, -12, -58 * direction, 16, bodyColor);
+    this.add.rectangle(x - 34 * direction, y + 42, 14, 44, bodyColor).setRotation(0.08 * direction);
+    this.add.rectangle(x + 30 * direction, y + 42, 14, 44, bodyColor).setRotation(-0.08 * direction);
+    this.add.rectangle(x - 38 * direction, y + 62, 28, 8, bodyColor).setRotation(-0.1 * direction);
+    this.add.rectangle(x + 36 * direction, y + 62, 28, 8, bodyColor).setRotation(0.1 * direction);
+    this.add.circle(x + 78 * direction, y - 20, 3, accentColor);
 
     if (hasCrest) {
-      this.add.rectangle(x + 56 * direction, y - 54, 72, 16, accentColor, 0.68).setRotation(-0.32 * direction);
+      this.add.triangle(x + 50 * direction, y - 35, 0, 0, 48 * direction, -22, 30 * direction, 10, accentColor, 0.76);
     }
 
     if (hasArmor) {
-      this.add.circle(x + 76 * direction, y - 34, 42, accentColor, 0.28);
-      this.add.rectangle(x - 4 * direction, y - 28, 78, 12, accentColor, 0.42);
+      this.add.ellipse(x + 64 * direction, y - 26, 62, 42, accentColor, 0.24);
+      for (let offset = -46; offset <= 28; offset += 18) {
+        this.add.triangle(x + offset * direction, y - 26, 0, 0, 8 * direction, -14, 16 * direction, 0, accentColor, 0.48);
+      }
+    }
+
+    if (hasSail) {
+      this.add.triangle(x - 10 * direction, y - 28, 0, 32, 28 * direction, -38, 58 * direction, 32, accentColor, 0.5);
     }
   }
 

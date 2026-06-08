@@ -191,7 +191,7 @@ export class PartyMenu {
 }
 
 function isTravelReturnMap(mapId: MapId): mapId is Exclude<MapId, 'IslandBaseScene'> {
-  return mapId === 'AmberleafTownScene' || mapId === 'LabScene' || mapId === 'FernTrailScene';
+  return mapId === 'AmberleafTownScene' || mapId === 'LabScene' || mapId === 'FernTrailScene' || mapId === 'MossbankVillageScene';
 }
 
 function wrapIndex(index: number, length: number): number {
