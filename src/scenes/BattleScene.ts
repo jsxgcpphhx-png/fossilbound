@@ -17,8 +17,27 @@ import type { EncounterPreview } from '../data/encounters';
 import { getInventoryCategoryLabel, getInventoryEntries, type InventoryEntry } from '../data/inventory';
 import { addTemporaryDebugCreatureToParty, getCreatureByInstanceId, getKnownDinosaurName, loadPlayerState, updatePlayerPosition } from '../data/playerState';
 import type { TilePosition } from '../types/grid';
+import { wrapText } from '../ui/DialogueBox';
 
 type MainBattleMenuOption = 'Observe' | 'Actions' | 'Field Pack' | 'Flee';
+
+interface ActionHazard {
+  shape: Phaser.GameObjects.GameObject;
+  velocityX: number;
+  velocityY: number;
+  radius: number;
+}
+
+interface ActionPhaseState {
+  action: BattleAction;
+  panel: Phaser.Geom.Rectangle;
+  player: Phaser.GameObjects.Rectangle;
+  hazards: ActionHazard[];
+  startedAt: number;
+  lastSpawnAt: number;
+  hit: boolean;
+  timeText: Phaser.GameObjects.Text;
+}
 
 const MAIN_MENU_OPTIONS: MainBattleMenuOption[] = ['Observe', 'Actions', 'Field Pack', 'Flee'];
 
@@ -39,9 +58,14 @@ export class BattleScene extends Phaser.Scene {
   private menuTexts: Phaser.GameObjects.Text[] = [];
   private panelObjects: Phaser.GameObjects.GameObject[] = [];
   private messageText?: Phaser.GameObjects.Text;
+  private messageContinueText?: Phaser.GameObjects.Text;
   private messageQueue: BattleMessageQueue = { pendingLines: [] };
+  private activeMessagePages: string[] = [];
+  private activeMessagePageIndex = 0;
+  private actionPhase?: ActionPhaseState;
   private menuKeys?: Phaser.Input.Keyboard.Key[];
   private actionKeys?: Phaser.Input.Keyboard.Key[];
+  private phaseKeys?: Record<'left' | 'right' | 'up' | 'down', Phaser.Input.Keyboard.Key[]>;
 
   constructor() {
     super('BattleScene');
@@ -54,7 +78,11 @@ export class BattleScene extends Phaser.Scene {
     this.menuTexts = [];
     this.panelObjects = [];
     this.messageText = undefined;
+    this.messageContinueText = undefined;
     this.messageQueue = { pendingLines: [...TEMPORARY_BATTLE_CONFIG.openingMessages] };
+    this.activeMessagePages = [];
+    this.activeMessagePageIndex = 0;
+    this.actionPhase = undefined;
   }
 
   create(): void {
@@ -80,7 +108,12 @@ export class BattleScene extends Phaser.Scene {
     this.registerControls();
   }
 
-  update(): void {
+  update(time: number, delta: number): void {
+    if (this.actionPhase) {
+      this.updateActionPhase(time, delta);
+      return;
+    }
+
     if (!this.menuKeys || !this.actionKeys) {
       return;
     }
@@ -180,6 +213,7 @@ export class BattleScene extends Phaser.Scene {
   private drawBackground(): void {
     this.add.rectangle(320, 240, 640, 480, 0x17251d);
     this.add.rectangle(320, 178, 640, 356, 0x35522f);
+    this.add.rectangle(320, 178, 570, 260, 0x243b2a, 0.28).setStrokeStyle(2, 0x6c7f43, 0.28);
     this.add.rectangle(320, 350, 640, 104, 0x5f7f43, 0.88);
     this.add.rectangle(320, 352, 640, 42, 0x2d4632, 0.22);
     this.add.circle(124, 326, 92, 0xc7a765, 0.32);
@@ -259,7 +293,8 @@ export class BattleScene extends Phaser.Scene {
     const statusLabel = getTemporaryStatusLabel(hpStatus.statusLabelId);
     const hpRatio = hpStatus.maxHp > 0 ? Math.max(0, Math.min(1, hpStatus.currentHp / hpStatus.maxHp)) : 0;
 
-    this.add.rectangle(x + 112, y + 42, 224, 90, 0xf8f3df, 0.96).setStrokeStyle(4, 0x2d4632);
+    this.add.rectangle(x + 112, y + 42, 230, 94, 0xf8f3df, 0.97).setStrokeStyle(4, 0x2d4632);
+    this.add.rectangle(x + 112, y + 42, 214, 78, 0xefe2bf, 0.35).setStrokeStyle(1, 0xd6ad6a, 0.5);
     this.add.text(x + 20, y + 12, creature.displayName, {
       color: '#17251d',
       fontFamily: 'monospace',
@@ -271,8 +306,14 @@ export class BattleScene extends Phaser.Scene {
       fontFamily: 'monospace',
       fontSize: '12px'
     });
-    this.add.rectangle(x + 112, y + 64, 160, 12, 0x2d4632, 0.28);
-    this.add.rectangle(x + 35 + 77 * hpRatio, y + 64, 154 * hpRatio, 7, 0x6c7f43, 0.75);
+    this.add.text(x + 20, y + 56, 'TEMP HP', {
+      color: '#6f4b2f',
+      fontFamily: 'monospace',
+      fontSize: '9px',
+      fontStyle: 'bold'
+    });
+    this.add.rectangle(x + 112, y + 64, 160, 13, 0x2d4632, 0.3);
+    this.add.rectangle(x + 35 + 77 * hpRatio, y + 64, 154 * hpRatio, 8, 0x6c7f43, 0.82);
     this.add.text(x + 20, y + 73, `${hpStatus.currentHp}/${hpStatus.maxHp} HP · ${statusLabel.displayText}`, {
       color: '#6c7f43',
       fontFamily: 'monospace',
@@ -287,14 +328,26 @@ export class BattleScene extends Phaser.Scene {
       fontFamily: 'monospace',
       fontSize: '18px',
       lineSpacing: 6,
-      wordWrap: { width: 352 }
+      wordWrap: { width: 352, useAdvancedWrap: true }
     });
-    this.add.text(38, 456, 'Controls: arrows choose · Enter confirm/next · Esc back/flee · F flee · O/A/P shortcuts', {
+    this.messageContinueText = this.add.text(380, 432, '▼', {
+      color: '#d99c3b',
+      fontFamily: 'monospace',
+      fontSize: '18px',
+      fontStyle: 'bold'
+    });
+    this.add.text(38, 456, 'Controls: arrows choose · Enter next/confirm · Esc back · F flee · O/A/P shortcuts', {
       color: '#6c7f43',
       fontFamily: 'monospace',
       fontSize: '11px'
     });
     this.add.rectangle(504, 426, 198, 88, 0xefe2bf, 0.96).setStrokeStyle(3, 0x6f4b2f);
+    this.add.text(424, 376, 'Menu', {
+      color: '#6f4b2f',
+      fontFamily: 'monospace',
+      fontSize: '11px',
+      fontStyle: 'bold'
+    });
 
     this.menuTexts = Array.from({ length: 8 }, (_, index) => this.add.text(424 + (index % 2) * 96, 394 + Math.floor(index / 2) * 22, '', {
       color: '#2d4632',
@@ -320,6 +373,12 @@ export class BattleScene extends Phaser.Scene {
       this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.A),
       this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.P)
     ];
+    this.phaseKeys = {
+      left: [this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.LEFT), this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.A)],
+      right: [this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.RIGHT), this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.D)],
+      up: [this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.UP), this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.W)],
+      down: [this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.DOWN), this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.S)]
+    };
   }
 
   private changeSelection(delta: number): void {
@@ -347,8 +406,11 @@ export class BattleScene extends Phaser.Scene {
         return;
       }
 
-      const marker = index === this.menuState.selectedIndex ? '▶ ' : '  ';
+      const isSelected = index === this.menuState.selectedIndex;
+      const marker = isSelected ? '▶ ' : '  ';
       text.setText(`${marker}${option}`);
+      text.setColor(isSelected ? '#f8f3df' : '#2d4632');
+      text.setBackgroundColor(isSelected ? '#6f4b2f' : 'rgba(0,0,0,0)');
     });
   }
 
@@ -562,9 +624,149 @@ export class BattleScene extends Phaser.Scene {
     this.drawPanel(action.label, [
       action.summary,
       linkedMove ? `Linked temporary move-like entry: ${linkedMove.label}.` : 'No linked move-like entry.',
-      linkedMove?.developerNote ?? 'Future real battle data will replace this placeholder.'
+      action.phaseProfile?.developerNote ?? linkedMove?.developerNote ?? 'Future real battle data will replace this placeholder.',
+      'DEV NOTE: The action panel is experimental scaffolding only; it does not imply final attack, defense, accuracy, dodge, bond, or move-resolution rules.'
     ]);
     this.queueMessages(action.messageLines);
+    this.startTemporaryActionPhase(action);
+  }
+
+
+  private startTemporaryActionPhase(action: BattleAction): void {
+    const profile = action.phaseProfile;
+
+    if (!profile) {
+      return;
+    }
+
+    this.menuState = { mode: 'action-phase', selectedIndex: 0 };
+    this.updateMenuLabels();
+    this.clearPanel();
+
+    const panel = new Phaser.Geom.Rectangle(200, 82, 240, 188);
+    this.panelObjects.push(this.add.rectangle(panel.centerX, panel.centerY, panel.width + 18, panel.height + 18, 0x17251d, 0.94).setStrokeStyle(4, 0xf0c878));
+    this.panelObjects.push(this.add.rectangle(panel.centerX, panel.centerY, panel.width, panel.height, 0x243b2a, 0.98).setStrokeStyle(2, 0x6c7f43));
+    this.panelObjects.push(this.add.text(panel.x, panel.y - 34, `${action.label} prototype`, {
+      color: '#f8f3df',
+      fontFamily: 'monospace',
+      fontSize: '15px',
+      fontStyle: 'bold'
+    }));
+    this.panelObjects.push(this.add.text(panel.x, panel.y + panel.height + 12, `Move sigil: arrows/WASD · avoid ${profile.hazardLabel}`, {
+      color: '#f0c878',
+      fontFamily: 'monospace',
+      fontSize: '11px'
+    }));
+
+    const player = this.add.rectangle(panel.centerX, panel.bottom - 24, 14, 14, 0xf8f3df, 1).setStrokeStyle(2, 0xd99c3b);
+    const timeText = this.add.text(panel.right - 70, panel.y - 30, '', {
+      color: '#f8f3df',
+      fontFamily: 'monospace',
+      fontSize: '12px'
+    });
+    this.panelObjects.push(player, timeText);
+
+    this.actionPhase = {
+      action,
+      panel,
+      player,
+      hazards: [],
+      startedAt: this.time.now,
+      lastSpawnAt: this.time.now,
+      hit: false,
+      timeText
+    };
+  }
+
+  private updateActionPhase(time: number, delta: number): void {
+    const phase = this.actionPhase;
+    const profile = phase?.action.phaseProfile;
+
+    if (!phase || !profile) {
+      return;
+    }
+
+    const elapsed = time - phase.startedAt;
+    const remaining = Math.max(0, Math.ceil((profile.durationMs - elapsed) / 1000));
+    phase.timeText.setText(`${remaining}s`);
+    this.moveActionSigil(phase, delta);
+
+    if (time - phase.lastSpawnAt >= profile.hazardSpawnMs) {
+      this.spawnActionHazard(phase);
+      phase.lastSpawnAt = time;
+    }
+
+    this.updateActionHazards(phase, delta);
+
+    if (elapsed >= profile.durationMs || phase.hit) {
+      this.finishActionPhase(phase);
+    }
+  }
+
+  private moveActionSigil(phase: ActionPhaseState, delta: number): void {
+    if (!this.input.keyboard || !this.phaseKeys) {
+      return;
+    }
+
+    const speed = 130 * (delta / 1000);
+    const left = this.phaseKeys.left.some((key) => this.input.keyboard!.checkDown(key, 1));
+    const right = this.phaseKeys.right.some((key) => this.input.keyboard!.checkDown(key, 1));
+    const up = this.phaseKeys.up.some((key) => this.input.keyboard!.checkDown(key, 1));
+    const down = this.phaseKeys.down.some((key) => this.input.keyboard!.checkDown(key, 1));
+
+    const nextX = Phaser.Math.Clamp(phase.player.x + (right ? speed : 0) - (left ? speed : 0), phase.panel.left + 8, phase.panel.right - 8);
+    const nextY = Phaser.Math.Clamp(phase.player.y + (down ? speed : 0) - (up ? speed : 0), phase.panel.top + 8, phase.panel.bottom - 8);
+    phase.player.setPosition(nextX, nextY);
+  }
+
+  private spawnActionHazard(phase: ActionPhaseState): void {
+    const profile = phase.action.phaseProfile;
+
+    if (!profile) {
+      return;
+    }
+
+    const x = Phaser.Math.Between(phase.panel.left + 10, phase.panel.right - 10);
+    const radius = Phaser.Math.Between(5, 8);
+    const shape = this.add.circle(x, phase.panel.top - 8, radius, profile.hazardColor, 0.96).setStrokeStyle(1, 0xf8f3df, 0.55);
+    const drift = Phaser.Math.Between(-20, 20);
+    phase.hazards.push({ shape, velocityX: drift, velocityY: profile.hazardSpeed, radius });
+    this.panelObjects.push(shape);
+  }
+
+  private updateActionHazards(phase: ActionPhaseState, delta: number): void {
+    const deltaSeconds = delta / 1000;
+
+    phase.hazards = phase.hazards.filter((hazard) => {
+      hazard.shape.setPosition(hazard.shape.x + hazard.velocityX * deltaSeconds, hazard.shape.y + hazard.velocityY * deltaSeconds);
+
+      const distance = Phaser.Math.Distance.Between(hazard.shape.x, hazard.shape.y, phase.player.x, phase.player.y);
+      if (distance < hazard.radius + 9) {
+        phase.hit = true;
+      }
+
+      if (hazard.shape.y > phase.panel.bottom + 16) {
+        hazard.shape.destroy();
+        return false;
+      }
+
+      return true;
+    });
+  }
+
+  private finishActionPhase(phase: ActionPhaseState): void {
+    const profile = phase.action.phaseProfile;
+    const resultLine = phase.hit
+      ? profile?.failureLine ?? 'Placeholder action feedback: hit detected, but no battle values changed.'
+      : profile?.successLine ?? 'Placeholder action feedback: clear, but no battle values changed.';
+
+    phase.hazards.forEach((hazard) => hazard.shape.destroy());
+    this.actionPhase = undefined;
+    this.openMainMenu();
+    this.queueMessages([
+      resultLine,
+      'Returned to battle menu. Final damage, turn order, capture, type mechanics, stats, and balance remain undecided.'
+    ]);
   }
 
   private drawPanel(title: string, lines: string[]): void {
@@ -592,22 +794,38 @@ export class BattleScene extends Phaser.Scene {
 
   private queueMessages(lines: string[]): void {
     this.messageQueue = { pendingLines: [...lines] };
+    this.activeMessagePages = [];
+    this.activeMessagePageIndex = 0;
     this.showNextMessage();
   }
 
   private showNextMessage(): void {
+    if (this.activeMessagePages.length > 0 && this.activeMessagePageIndex < this.activeMessagePages.length - 1) {
+      this.activeMessagePageIndex += 1;
+      this.renderActiveMessagePage();
+      return;
+    }
+
     const nextLine = this.messageQueue.pendingLines.shift();
 
     if (!nextLine) {
+      this.messageContinueText?.setVisible(false);
       return;
     }
 
     this.messageQueue.activeLine = nextLine;
-    this.messageText?.setText(nextLine);
+    this.activeMessagePages = paginateBattleMessage(nextLine);
+    this.activeMessagePageIndex = 0;
+    this.renderActiveMessagePage();
+  }
+
+  private renderActiveMessagePage(): void {
+    this.messageText?.setText(this.activeMessagePages[this.activeMessagePageIndex] ?? '');
+    this.messageContinueText?.setVisible(this.hasPendingMessages());
   }
 
   private hasPendingMessages(): boolean {
-    return this.messageQueue.pendingLines.length > 0;
+    return this.messageQueue.pendingLines.length > 0 || this.activeMessagePageIndex < this.activeMessagePages.length - 1;
   }
 
   private backOrFlee(): void {
@@ -630,4 +848,15 @@ export class BattleScene extends Phaser.Scene {
   private getDinosaur(dinosaurId?: string): DinosaurDefinition | undefined {
     return EARLY_GAME_DINOSAURS.find((dinosaur) => dinosaur.id === dinosaurId);
   }
+}
+
+function paginateBattleMessage(message: string): string[] {
+  const lines = wrapText(message, 39);
+  const pages: string[] = [];
+
+  for (let index = 0; index < lines.length; index += 2) {
+    pages.push(lines.slice(index, index + 2).join('\n'));
+  }
+
+  return pages.length > 0 ? pages : [''];
 }

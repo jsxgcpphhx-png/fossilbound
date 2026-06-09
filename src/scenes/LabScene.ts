@@ -99,6 +99,7 @@ export class LabScene extends Phaser.Scene {
     }
 
     this.debugPanel.update(this.player.currentTile);
+    this.dialogueBox.update();
     this.partyMenu.update();
 
     if (this.selectionPanel.isOpen()) {
@@ -128,7 +129,7 @@ export class LabScene extends Phaser.Scene {
 
     if (this.isInteractPressed()) {
       if (this.dialogueBox.isOpen()) {
-        this.dialogueBox.hide();
+        this.dialogueBox.advance();
       } else if (!this.tryUseSelectionTable()) {
         this.tryTalkToNpc();
       }

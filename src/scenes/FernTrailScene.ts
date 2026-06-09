@@ -110,6 +110,7 @@ export class FernTrailScene extends Phaser.Scene {
     }
 
     this.debugPanel.update(this.player.currentTile);
+    this.dialogueBox.update();
     this.partyMenu.update();
 
     if (this.isPartyMenuPressed()) {
@@ -134,7 +135,7 @@ export class FernTrailScene extends Phaser.Scene {
 
     if (this.isInteractPressed()) {
       if (this.dialogueBox.isOpen()) {
-        this.dialogueBox.hide();
+        this.dialogueBox.advance();
       } else {
         this.dialogueBox.show(
           'Fern Trail',
@@ -261,7 +262,8 @@ export class FernTrailScene extends Phaser.Scene {
     };
     this.interactKeys = [
       keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE),
-      keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E)
+      keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E),
+      keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER)
     ];
     this.partyKeys = [keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.P)];
     this.escapeKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
