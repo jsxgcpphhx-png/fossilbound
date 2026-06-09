@@ -3,18 +3,32 @@ import type { TilePosition } from '../types/grid';
 
 export class DebugPanel {
   private readonly text: Phaser.GameObjects.Text;
+  private readonly toggleKey?: Phaser.Input.Keyboard.Key;
+  private visible = false;
 
   constructor(scene: Phaser.Scene) {
     this.text = scene.add.text(12, 12, '', {
-      backgroundColor: 'rgba(23, 37, 29, 0.52)',
+      backgroundColor: 'rgba(23, 37, 29, 0.78)',
       color: '#f8f3df',
       fontFamily: 'monospace',
-      fontSize: '11px',
-      padding: { x: 8, y: 6 }
-    });
+      fontSize: '10px',
+      lineSpacing: 3,
+      padding: { x: 8, y: 5 },
+      wordWrap: { width: 210 }
+    }).setDepth(100).setVisible(false);
+    this.toggleKey = scene.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.D);
   }
 
   update(tile: TilePosition): void {
-    this.text.setText(`Debug · tile (${tile.x}, ${tile.y})`);
+    if (this.toggleKey && Phaser.Input.Keyboard.JustDown(this.toggleKey)) {
+      this.visible = !this.visible;
+      this.text.setVisible(this.visible);
+    }
+
+    this.text.setText([
+      'Debug overlay',
+      `tile (${tile.x}, ${tile.y})`,
+      'D toggle · P Travel Team'
+    ].join('\n'));
   }
 }
