@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { drawUiPanel, panelTextStyle, UI_COLORS, UI_HEX } from './theme';
 
 interface DialoguePage {
   speaker: string;
@@ -54,33 +55,27 @@ export class DialogueBox {
     const left = this.options.x - this.options.width / 2 + 28;
     const top = this.options.y - this.options.height / 2 + 16;
 
-    this.box = scene.add.rectangle(this.options.x, this.options.y, this.options.width, this.options.height, 0xf8f3df, 1)
-      .setStrokeStyle(4, 0x2d4632)
-      .setDepth(this.options.depth).setScrollFactor(0);
-    this.nameText = scene.add.text(left, top, '', {
-      color: '#2d4632',
-      fontFamily: 'monospace',
+    this.box = drawUiPanel(scene, { x: this.options.x, y: this.options.y, width: this.options.width, height: this.options.height, depth: this.options.depth, fill: UI_HEX.parchment, stroke: UI_HEX.leaf, alpha: 1 });
+    this.nameText = scene.add.text(left, top, '', panelTextStyle({
+      color: UI_COLORS.leaf,
       fontSize: `${this.options.fontSize}px`,
       fontStyle: 'bold'
-    }).setDepth(this.options.depth + 1).setScrollFactor(0);
-    this.bodyText = scene.add.text(left, top + 28, '', {
-      color: '#17251d',
-      fontFamily: 'monospace',
+    })).setDepth(this.options.depth + 1).setScrollFactor(0);
+    this.bodyText = scene.add.text(left, top + 28, '', panelTextStyle({
+      color: UI_COLORS.ink,
       fontSize: `${this.options.fontSize}px`,
       lineSpacing: 6,
       wordWrap: { width: this.options.bodyWidth, useAdvancedWrap: true }
-    }).setDepth(this.options.depth + 1).setScrollFactor(0);
-    this.promptText = scene.add.text(left, top + this.options.height - 34, 'Space/Enter: next · Esc: close', {
-      color: '#6c7f43',
-      fontFamily: 'monospace',
+    })).setDepth(this.options.depth + 1).setScrollFactor(0);
+    this.promptText = scene.add.text(left, top + this.options.height - 34, 'Space/Enter: next · Esc: close', panelTextStyle({
+      color: UI_COLORS.moss,
       fontSize: '12px'
-    }).setDepth(this.options.depth + 1).setScrollFactor(0);
-    this.continueText = scene.add.text(this.options.x + this.options.width / 2 - 48, top + this.options.height - 36, '▼', {
-      color: '#d99c3b',
-      fontFamily: 'monospace',
+    })).setDepth(this.options.depth + 1).setScrollFactor(0);
+    this.continueText = scene.add.text(this.options.x + this.options.width / 2 - 48, top + this.options.height - 36, '▼', panelTextStyle({
+      color: UI_COLORS.amber,
       fontSize: '18px',
       fontStyle: 'bold'
-    }).setDepth(this.options.depth + 1).setScrollFactor(0);
+    })).setDepth(this.options.depth + 1).setScrollFactor(0);
 
     this.group = scene.add.group([this.box, this.nameText, this.bodyText, this.promptText, this.continueText]);
     this.hide();

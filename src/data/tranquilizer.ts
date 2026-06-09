@@ -1,5 +1,8 @@
-export type TranquilizerSequenceVariationId = 'steady' | 'drifting' | 'pulsing' | 'light-hazards';
+export type TranquilizerSequenceVariationId = 'steady' | 'drifting' | 'pulsing' | 'light-hazards' | 'apex-surge';
 export type CreatureRarityPlaceholder = 'common' | 'uncommon' | 'rare';
+export type TranquilizerDifficultyTier = 'Easy' | 'Medium' | 'Hard' | 'Apex/Rare';
+export type TranquilizerObstacleKind = 'amber-shard' | 'thorn-cluster' | 'fossil-splinter' | 'alarm-spark' | 'wind-gust';
+export type TranquilizerObstacleMotion = 'stationary' | 'drift' | 'patrol' | 'bounce';
 
 export interface TranquilizerDifficultyInputs {
   creatureLevel: number;
@@ -8,13 +11,28 @@ export interface TranquilizerDifficultyInputs {
   tranqGunUpgradeLevel: number;
 }
 
+export interface TranquilizerObstaclePattern {
+  kind: TranquilizerObstacleKind;
+  motion: TranquilizerObstacleMotion;
+  radius: number;
+  speed: number;
+}
+
 export interface TranquilizerDifficultyProfile {
   variationId: TranquilizerSequenceVariationId;
+  difficultyTier: TranquilizerDifficultyTier;
+  difficultyScore: number;
   targetRadius: number;
   targetSpeed: number;
+  targetAcceleration: number;
   requiredLockOnMs: number;
+  roundTimeLimitMs: number;
   totalTimeLimitMs: number;
-  hazardCount: number;
+  requiredRounds: number;
+  obstacleCount: number;
+  obstacleRadius: number;
+  movingObstacles: boolean;
+  obstaclePatterns: TranquilizerObstaclePattern[];
   developerNote: string;
 }
 
@@ -26,10 +44,11 @@ export interface TranquilizerUpgradeDefinition {
 }
 
 export const TRANQUILIZER_SEQUENCE_VARIATIONS: Record<TranquilizerSequenceVariationId, string> = {
-  steady: 'Steady moving target',
-  drifting: 'Drifting target',
-  pulsing: 'Pulsing target',
-  'light-hazards': 'Target with light hazards'
+  steady: 'Steady target with broad timing',
+  drifting: 'Drifting target with light course changes',
+  pulsing: 'Pulsing target with tighter tracking',
+  'light-hazards': 'Hazard-laced moving target',
+  'apex-surge': 'Erratic target with moving hazards'
 };
 
 export const TRANQUILIZER_UPGRADES: TranquilizerUpgradeDefinition[] = [
@@ -61,26 +80,97 @@ export function createTranquilizerDifficultyProfile(inputs: TranquilizerDifficul
   const clampedLevel = Math.max(1, Math.floor(inputs.creatureLevel));
   const hpRatio = Math.max(0.05, Math.min(1, inputs.currentHpRatio));
   const upgrade = getTranquilizerUpgrade(inputs.tranqGunUpgradeLevel);
-  const rarityPressure = inputs.creatureRarity === 'rare' ? 0.22 : inputs.creatureRarity === 'uncommon' ? 0.12 : 0;
-  const levelPressure = Math.min(0.3, clampedLevel * 0.012);
-  const weakenedEase = (1 - hpRatio) * 0.24;
+  const rarityPressure = inputs.creatureRarity === 'rare' ? 0.34 : inputs.creatureRarity === 'uncommon' ? 0.17 : 0;
+  const levelPressure = Math.min(0.34, clampedLevel * 0.014);
+  const weakenedEase = (1 - hpRatio) * 0.22;
   const assist = upgrade.captureAssistPlaceholder;
-  const difficulty = Math.max(0, Math.min(0.6, rarityPressure + levelPressure - weakenedEase - assist));
-  const variationId: TranquilizerSequenceVariationId = difficulty > 0.42
-    ? 'light-hazards'
-    : difficulty > 0.28
-      ? 'pulsing'
-      : difficulty > 0.14
-        ? 'drifting'
-        : 'steady';
+  const difficulty = Math.max(0, Math.min(0.78, rarityPressure + levelPressure - weakenedEase - assist));
+  const difficultyTier = getDifficultyTier(difficulty, inputs.creatureRarity);
+  const variationId = getVariationId(difficultyTier, difficulty);
+  const obstaclePatterns = createObstaclePatterns(difficultyTier, difficulty);
 
   return {
     variationId,
-    targetRadius: Math.round(34 - difficulty * 22 + weakenedEase * 10 + assist * 18),
-    targetSpeed: Math.round(42 + difficulty * 115 - weakenedEase * 25 - assist * 28),
-    requiredLockOnMs: Math.round(1400 + difficulty * 2200 - weakenedEase * 700 - assist * 900),
-    totalTimeLimitMs: Math.round(9000 - difficulty * 2400 + weakenedEase * 900 + assist * 1200),
-    hazardCount: variationId === 'light-hazards' ? 3 : 0,
-    developerNote: 'Prototype formula only: stronger/higher-level/rarer creatures become harder, lower HP and tranq upgrades make capture easier. No final capture odds or economy exist.'
+    difficultyTier,
+    difficultyScore: Number(difficulty.toFixed(2)),
+    targetRadius: Math.round(29 - difficulty * 15 + weakenedEase * 6 + assist * 10),
+    targetSpeed: Math.round(56 + difficulty * 122 - weakenedEase * 18 - assist * 22),
+    targetAcceleration: Math.round(18 + difficulty * 52),
+    requiredLockOnMs: Math.round(950 + difficulty * 820 - weakenedEase * 220 - assist * 320),
+    roundTimeLimitMs: Math.round(7000 - difficulty * 1700 + weakenedEase * 500 + assist * 650),
+    totalTimeLimitMs: Math.round(22000 - difficulty * 5200 + weakenedEase * 1500 + assist * 1800),
+    requiredRounds: 3,
+    obstacleCount: obstaclePatterns.length,
+    obstacleRadius: obstaclePatterns[0]?.radius ?? 0,
+    movingObstacles: obstaclePatterns.some((pattern) => pattern.motion !== 'stationary'),
+    obstaclePatterns,
+    developerNote: 'Prototype formula only: stronger/higher-level/rarer creatures create smaller targets, faster movement, shorter timers, and denser obstacles. No final capture odds, dart economy, upgrade curve, type balance, damage formula, or progression tuning exists.'
   };
+}
+
+function getDifficultyTier(difficulty: number, rarity: CreatureRarityPlaceholder): TranquilizerDifficultyTier {
+  if (rarity === 'rare' && difficulty >= 0.34) {
+    return 'Apex/Rare';
+  }
+
+  if (difficulty >= 0.48) {
+    return 'Hard';
+  }
+
+  if (difficulty >= 0.22) {
+    return 'Medium';
+  }
+
+  return 'Easy';
+}
+
+function getVariationId(tier: TranquilizerDifficultyTier, difficulty: number): TranquilizerSequenceVariationId {
+  if (tier === 'Apex/Rare') {
+    return 'apex-surge';
+  }
+
+  if (tier === 'Hard') {
+    return 'light-hazards';
+  }
+
+  if (difficulty >= 0.32) {
+    return 'pulsing';
+  }
+
+  if (tier === 'Medium') {
+    return 'drifting';
+  }
+
+  return 'steady';
+}
+
+function createObstaclePatterns(tier: TranquilizerDifficultyTier, difficulty: number): TranquilizerObstaclePattern[] {
+  const mediumRadius = Math.round(12 + difficulty * 4);
+
+  if (tier === 'Easy') {
+    return difficulty > 0.12 ? [{ kind: 'amber-shard', motion: 'stationary', radius: 12, speed: 0 }] : [];
+  }
+
+  if (tier === 'Medium') {
+    return [
+      { kind: 'amber-shard', motion: 'stationary', radius: mediumRadius, speed: 0 },
+      { kind: 'thorn-cluster', motion: 'stationary', radius: mediumRadius + 1, speed: 0 }
+    ];
+  }
+
+  if (tier === 'Hard') {
+    return [
+      { kind: 'amber-shard', motion: 'stationary', radius: 13, speed: 0 },
+      { kind: 'fossil-splinter', motion: 'drift', radius: 12, speed: 34 },
+      { kind: 'alarm-spark', motion: 'bounce', radius: 10, speed: 48 }
+    ];
+  }
+
+  return [
+    { kind: 'amber-shard', motion: 'patrol', radius: 12, speed: 44 },
+    { kind: 'thorn-cluster', motion: 'stationary', radius: 13, speed: 0 },
+    { kind: 'fossil-splinter', motion: 'drift', radius: 11, speed: 40 },
+    { kind: 'alarm-spark', motion: 'bounce', radius: 10, speed: 58 },
+    { kind: 'wind-gust', motion: 'patrol', radius: 14, speed: 50 }
+  ];
 }
