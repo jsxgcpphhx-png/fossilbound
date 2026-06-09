@@ -56,31 +56,31 @@ export class DialogueBox {
 
     this.box = scene.add.rectangle(this.options.x, this.options.y, this.options.width, this.options.height, 0xf8f3df, 1)
       .setStrokeStyle(4, 0x2d4632)
-      .setDepth(this.options.depth);
+      .setDepth(this.options.depth).setScrollFactor(0);
     this.nameText = scene.add.text(left, top, '', {
       color: '#2d4632',
       fontFamily: 'monospace',
       fontSize: `${this.options.fontSize}px`,
       fontStyle: 'bold'
-    }).setDepth(this.options.depth + 1);
+    }).setDepth(this.options.depth + 1).setScrollFactor(0);
     this.bodyText = scene.add.text(left, top + 28, '', {
       color: '#17251d',
       fontFamily: 'monospace',
       fontSize: `${this.options.fontSize}px`,
       lineSpacing: 6,
       wordWrap: { width: this.options.bodyWidth, useAdvancedWrap: true }
-    }).setDepth(this.options.depth + 1);
+    }).setDepth(this.options.depth + 1).setScrollFactor(0);
     this.promptText = scene.add.text(left, top + this.options.height - 34, 'Space/Enter: next · Esc: close', {
       color: '#6c7f43',
       fontFamily: 'monospace',
       fontSize: '12px'
-    }).setDepth(this.options.depth + 1);
+    }).setDepth(this.options.depth + 1).setScrollFactor(0);
     this.continueText = scene.add.text(this.options.x + this.options.width / 2 - 48, top + this.options.height - 36, '▼', {
       color: '#d99c3b',
       fontFamily: 'monospace',
       fontSize: '18px',
       fontStyle: 'bold'
-    }).setDepth(this.options.depth + 1);
+    }).setDepth(this.options.depth + 1).setScrollFactor(0);
 
     this.group = scene.add.group([this.box, this.nameText, this.bodyText, this.promptText, this.continueText]);
     this.hide();

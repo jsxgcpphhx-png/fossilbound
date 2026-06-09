@@ -8,12 +8,18 @@ declare namespace Phaser {
         }
       }
 
-      namespace GameObjects {
+    namespace GameObjects {
         namespace Text {
           interface TextStyle {
             [key: string]: unknown;
           }
         }
+      }
+    }
+
+    namespace Cameras {
+      namespace Scene2D {
+        const Events: { FADE_OUT_COMPLETE: string };
       }
     }
 
@@ -68,6 +74,7 @@ declare namespace Phaser {
         y: number;
         setPosition(x: number, y: number): this;
         setVisible(visible: boolean): this;
+        setScrollFactor(x: number, y?: number): this;
       }
 
       interface Sprite extends GameObject {
@@ -86,6 +93,7 @@ declare namespace Phaser {
       }
       interface Group {
         setVisible(visible: boolean): this;
+        setScrollFactor(x: number, y?: number): this;
       }
     }
 
@@ -96,7 +104,7 @@ declare namespace Phaser {
 
     class Scene {
       constructor(sceneConfig?: string | object);
-      cameras: { main: { setBackgroundColor(color: string): void } };
+      cameras: { main: { setBackgroundColor(color: string): void; setBounds(x: number, y: number, width: number, height: number): void; setZoom(zoom: number): void; startFollow(target: GameObjects.GameObject, roundPixels?: boolean, lerpX?: number, lerpY?: number): void; fadeIn(duration: number, red?: number, green?: number, blue?: number): void; fadeOut(duration: number, red?: number, green?: number, blue?: number): void; once(eventName: string, callback: () => void): void } };
       textures: { createCanvas(key: string, width: number, height: number): CanvasTexture | null };
       add: {
         circle(x: number, y: number, radius: number, color: number, alpha?: number): GameObjects.GameObject;
