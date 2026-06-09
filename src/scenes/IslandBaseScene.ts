@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { GAME_HEIGHT, GAME_WIDTH } from '../data/constants';
-import { getCreatureByInstanceId, getKnownDinosaurName, loadPlayerState, returnFromIslandBase } from '../data/playerState';
+import { getCreatureByInstanceId, getCreatureSummaryLine, getFossilProgressSummary, loadPlayerState, returnFromIslandBase } from '../data/playerState';
 import { createOverworldCharacterTextures } from '../systems/PixelPlaceholderSprites';
 
 export class IslandBaseScene extends Phaser.Scene {
@@ -29,7 +29,7 @@ export class IslandBaseScene extends Phaser.Scene {
     const storedNames = state.islandStorageCreatureIds
       .map((creatureId) => getCreatureByInstanceId(state, creatureId))
       .filter((creature): creature is NonNullable<typeof creature> => Boolean(creature))
-      .map((creature) => `• ${getKnownDinosaurName(creature.dinosaurId)}`);
+      .map((creature) => `• ${getCreatureSummaryLine(creature)}`);
 
     this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x4f8cad);
     this.add.circle(320, 258, 210, 0xd6ad6a);
@@ -55,6 +55,10 @@ export class IslandBaseScene extends Phaser.Scene {
       'This placeholder scene represents home storage for non-traveling creatures.',
       `Stored placeholder creatures: ${state.islandStorageCreatureIds.length}`,
       storedNames.length > 0 ? storedNames.slice(0, 6).join('\n') : '• none yet',
+      '',
+      `Tranq gun upgrade placeholder: Lv.${state.tranqGunUpgradeLevel}`,
+      'Fossil progress debug:',
+      getFossilProgressSummary(state).slice(0, 3).map((line) => `• ${line}`).join('\n'),
       '',
       'Press Space / E / Esc to return to the previous map.'
     ].join('\n'), {

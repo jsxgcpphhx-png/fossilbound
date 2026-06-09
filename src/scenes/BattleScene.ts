@@ -13,19 +13,38 @@ import { TEMPORARY_BATTLE_CONFIG } from '../data/battle/temporaryBattleConfig';
 import { getTemporaryStatusLabel } from '../data/battle/temporaryBattleStatuses';
 import { TEMPORARY_MOVE_LIKE_ENTRIES } from '../data/battle/temporaryMoveLikeEntries';
 import { EARLY_GAME_DINOSAURS, type DinosaurDefinition } from '../data/dinosaurs';
+import { TRANQUILIZER_SEQUENCE_VARIATIONS, createTranquilizerDifficultyProfile, getTranquilizerUpgrade, type TranquilizerDifficultyProfile } from '../data/tranquilizer';
 import type { EncounterPreview } from '../data/encounters';
 import { getInventoryCategoryLabel, getInventoryEntries, type InventoryEntry } from '../data/inventory';
 import { addTemporaryDebugCreatureToParty, getCreatureByInstanceId, getKnownDinosaurName, loadPlayerState, updatePlayerPosition } from '../data/playerState';
 import type { TilePosition } from '../types/grid';
 import { wrapText } from '../ui/DialogueBox';
 
-type MainBattleMenuOption = 'Observe' | 'Actions' | 'Field Pack' | 'Flee';
+type MainBattleMenuOption = 'Observe' | 'Actions' | 'Capture' | 'Field Pack' | 'Flee';
 
 interface ActionHazard {
   shape: Phaser.GameObjects.GameObject;
   velocityX: number;
   velocityY: number;
   radius: number;
+}
+
+
+interface TranquilizerPhaseState {
+  panel: Phaser.Geom.Rectangle;
+  cursor: Phaser.GameObjects.Rectangle;
+  target: Phaser.GameObjects.GameObject;
+  profile: TranquilizerDifficultyProfile;
+  startedAt: number;
+  lockedOnMs: number;
+  targetVelocityX: number;
+  targetVelocityY: number;
+  progressBar: Phaser.GameObjects.Rectangle;
+  progressText: Phaser.GameObjects.Text;
+  timerText: Phaser.GameObjects.Text;
+  targetBaseRadius: number;
+  currentTargetRadius: number;
+  succeeded: boolean;
 }
 
 interface ActionPhaseState {
@@ -39,7 +58,7 @@ interface ActionPhaseState {
   timeText: Phaser.GameObjects.Text;
 }
 
-const MAIN_MENU_OPTIONS: MainBattleMenuOption[] = ['Observe', 'Actions', 'Field Pack', 'Flee'];
+const MAIN_MENU_OPTIONS: MainBattleMenuOption[] = ['Observe', 'Actions', 'Capture', 'Field Pack', 'Flee'];
 
 interface BattleSceneData extends EncounterPreview {
   returnPosition?: TilePosition;
@@ -63,6 +82,7 @@ export class BattleScene extends Phaser.Scene {
   private activeMessagePages: string[] = [];
   private activeMessagePageIndex = 0;
   private actionPhase?: ActionPhaseState;
+  private tranquilizerPhase?: TranquilizerPhaseState;
   private menuKeys?: Phaser.Input.Keyboard.Key[];
   private actionKeys?: Phaser.Input.Keyboard.Key[];
   private phaseKeys?: Record<'left' | 'right' | 'up' | 'down', Phaser.Input.Keyboard.Key[]>;
@@ -83,6 +103,7 @@ export class BattleScene extends Phaser.Scene {
     this.activeMessagePages = [];
     this.activeMessagePageIndex = 0;
     this.actionPhase = undefined;
+    this.tranquilizerPhase = undefined;
   }
 
   create(): void {
@@ -111,6 +132,11 @@ export class BattleScene extends Phaser.Scene {
   update(time: number, delta: number): void {
     if (this.actionPhase) {
       this.updateActionPhase(time, delta);
+      return;
+    }
+
+    if (this.tranquilizerPhase) {
+      this.updateTranquilizerPhase(time, delta);
       return;
     }
 
@@ -482,7 +508,17 @@ export class BattleScene extends Phaser.Scene {
       return;
     }
 
-    this.openFieldPackPanel();
+    if (selectedOption === 'Capture') {
+      this.startTranquilizerSequence();
+      return;
+    }
+
+    if (selectedOption === 'Field Pack') {
+      this.openFieldPackPanel();
+      return;
+    }
+
+    this.flee();
   }
 
   private openMainMenu(): void {
@@ -526,7 +562,7 @@ export class BattleScene extends Phaser.Scene {
     this.menuState = { mode: 'field-pack', selectedIndex: 0 };
     this.drawPanel(TEMPORARY_BATTLE_CONFIG.fieldPackTitle, [
       ...fieldPackEntries.map((entry) => `${getInventoryCategoryLabel(entry.category)} · ${entry.displayName} x${entry.quantity}`),
-      'DEV SCAFFOLD ONLY · Debug Add Creature is not final capture.'
+      'DEV SCAFFOLD ONLY · Tranq Sequence is the temporary capture mode.',
     ]);
     this.queueMessages(TEMPORARY_BATTLE_CONFIG.fieldPackLines);
     this.updateMenuLabels();
@@ -539,6 +575,7 @@ export class BattleScene extends Phaser.Scene {
   private getFieldPackMenuLabels(): string[] {
     return [
       ...this.getFieldPackEntries().map((entry) => `${entry.displayName} x${entry.quantity}`),
+      'Tranq Sequence',
       'DEV: Add Creature',
       'Back'
     ];
@@ -554,6 +591,11 @@ export class BattleScene extends Phaser.Scene {
     }
 
     if (selectedIndex === entries.length) {
+      this.startTranquilizerSequence();
+      return;
+    }
+
+    if (selectedIndex === entries.length + 1) {
       this.debugAddCreatureFromEncounter();
       return;
     }
@@ -618,6 +660,174 @@ export class BattleScene extends Phaser.Scene {
       'Final acquisition rules, storage, bonding, capture tools, probabilities, and progression will be designed later.'
     ]);
     this.queueMessages([result.message]);
+  }
+
+
+  private startTranquilizerSequence(): void {
+    const wildCreature = this.participants?.wild.creature;
+    const dinosaur = this.getDinosaur(wildCreature?.dinosaurId);
+    const playerState = loadPlayerState();
+    const rarity = dinosaur?.fossilReconstruction.isFossilReconstructable ? 'rare' : dinosaur?.growthCategory === 'big' ? 'uncommon' : 'common';
+    const hpStatus = wildCreature?.placeholderHpStatus ?? TEMPORARY_BATTLE_CONFIG.placeholderHp.wild;
+    const currentHpRatio = hpStatus.maxHp > 0 ? hpStatus.currentHp / hpStatus.maxHp : 1;
+    const profile = createTranquilizerDifficultyProfile({
+      creatureLevel: dinosaur?.placeholderBaseLevel ?? 5,
+      creatureRarity: rarity,
+      currentHpRatio,
+      tranqGunUpgradeLevel: playerState.tranqGunUpgradeLevel
+    });
+    const upgrade = getTranquilizerUpgrade(playerState.tranqGunUpgradeLevel);
+
+    this.menuState = { mode: 'capture-phase', selectedIndex: 0 };
+    this.updateMenuLabels();
+    this.clearPanel();
+
+    const panel = new Phaser.Geom.Rectangle(170, 76, 300, 214);
+    this.panelObjects.push(this.add.rectangle(panel.centerX, panel.centerY, panel.width + 20, panel.height + 20, 0x17251d, 0.95).setStrokeStyle(4, 0xf0c878));
+    this.panelObjects.push(this.add.rectangle(panel.centerX, panel.centerY, panel.width, panel.height, 0x243b2a, 0.98).setStrokeStyle(2, 0x6c7f43));
+    this.panelObjects.push(this.add.text(panel.x, panel.y - 34, 'Tranquilizer Sequence — TEMP CAPTURE PROTOTYPE', {
+      color: '#f8f3df',
+      fontFamily: 'monospace',
+      fontSize: '13px',
+      fontStyle: 'bold'
+    }));
+    this.panelObjects.push(this.add.text(panel.x, panel.bottom + 12, `Cursor: arrows/WASD · keep inside target · ${TRANQUILIZER_SEQUENCE_VARIATIONS[profile.variationId]}`, {
+      color: '#f0c878',
+      fontFamily: 'monospace',
+      fontSize: '10px',
+      wordWrap: { width: 310 }
+    }));
+    this.panelObjects.push(this.add.text(panel.x, panel.bottom + 38, `${upgrade.displayName} · ${profile.developerNote}`, {
+      color: '#d6ad6a',
+      fontFamily: 'monospace',
+      fontSize: '9px',
+      wordWrap: { width: 314 }
+    }));
+
+    const target = this.add.circle(panel.centerX + 70, panel.centerY - 24, profile.targetRadius, 0xd99c3b, 0.24).setStrokeStyle(3, 0xf8f3df, 0.92);
+    const cursor = this.add.rectangle(panel.centerX - 70, panel.centerY + 50, 14, 14, 0xf8f3df, 1).setStrokeStyle(2, 0x6f4b2f);
+    const progressBack = this.add.rectangle(panel.centerX, panel.top + 14, 180, 10, 0x17251d, 0.85).setStrokeStyle(1, 0xf8f3df, 0.48);
+    const progressBar = this.add.rectangle(panel.centerX - 90, panel.top + 14, 1, 6, 0x6c7f43, 0.92).setOrigin(0, 0.5);
+    const progressText = this.add.text(panel.x + 8, panel.top + 24, 'Lock-on 0%', { color: '#f8f3df', fontFamily: 'monospace', fontSize: '10px' });
+    const timerText = this.add.text(panel.right - 56, panel.top + 24, '0s', { color: '#f8f3df', fontFamily: 'monospace', fontSize: '10px' });
+    this.panelObjects.push(target, cursor, progressBack, progressBar, progressText, timerText);
+
+    this.tranquilizerPhase = {
+      panel,
+      cursor,
+      target,
+      profile,
+      startedAt: this.time.now,
+      lockedOnMs: 0,
+      targetVelocityX: profile.targetSpeed,
+      targetVelocityY: profile.targetSpeed * 0.55,
+      progressBar,
+      progressText,
+      timerText,
+      targetBaseRadius: profile.targetRadius,
+      currentTargetRadius: profile.targetRadius,
+      succeeded: false
+    };
+    this.queueMessages([
+      'Capture mode started: this is separate from the action bullet-hell phase.',
+      'Prototype only: track the moving circle before the timer expires.'
+    ]);
+  }
+
+  private updateTranquilizerPhase(time: number, delta: number): void {
+    const phase = this.tranquilizerPhase;
+
+    if (!phase) {
+      return;
+    }
+
+    this.moveTranqCursor(phase, delta);
+    this.moveTranqTarget(phase, time, delta);
+
+    const distance = Phaser.Math.Distance.Between(phase.cursor.x, phase.cursor.y, phase.target.x, phase.target.y);
+    const lockedOn = distance <= phase.currentTargetRadius;
+    phase.lockedOnMs = Phaser.Math.Clamp(phase.lockedOnMs + (lockedOn ? delta : -delta * 0.45), 0, phase.profile.requiredLockOnMs);
+    const progress = phase.lockedOnMs / phase.profile.requiredLockOnMs;
+    (phase.progressBar as unknown as { width: number }).width = Math.max(1, 180 * progress);
+    phase.progressText.setText(`Lock-on ${Math.round(progress * 100)}%`);
+    const remainingMs = Math.max(0, phase.profile.totalTimeLimitMs - (time - phase.startedAt));
+    phase.timerText.setText(`${Math.ceil(remainingMs / 1000)}s`);
+    phase.target.setStrokeStyle(lockedOn ? 4 : 3, lockedOn ? 0x6c7f43 : 0xf8f3df, 0.94);
+
+    if (phase.lockedOnMs >= phase.profile.requiredLockOnMs) {
+      phase.succeeded = true;
+      this.finishTranquilizerPhase(phase);
+      return;
+    }
+
+    if (remainingMs <= 0) {
+      this.finishTranquilizerPhase(phase);
+    }
+  }
+
+  private moveTranqCursor(phase: TranquilizerPhaseState, delta: number): void {
+    if (!this.input.keyboard || !this.phaseKeys) {
+      return;
+    }
+
+    const speed = 150 * (delta / 1000);
+    const left = this.phaseKeys.left.some((key) => this.input.keyboard!.checkDown(key, 1));
+    const right = this.phaseKeys.right.some((key) => this.input.keyboard!.checkDown(key, 1));
+    const up = this.phaseKeys.up.some((key) => this.input.keyboard!.checkDown(key, 1));
+    const down = this.phaseKeys.down.some((key) => this.input.keyboard!.checkDown(key, 1));
+    phase.cursor.setPosition(
+      Phaser.Math.Clamp(phase.cursor.x + (right ? speed : 0) - (left ? speed : 0), phase.panel.left + 7, phase.panel.right - 7),
+      Phaser.Math.Clamp(phase.cursor.y + (down ? speed : 0) - (up ? speed : 0), phase.panel.top + 7, phase.panel.bottom - 7)
+    );
+  }
+
+  private moveTranqTarget(phase: TranquilizerPhaseState, time: number, delta: number): void {
+    const deltaSeconds = delta / 1000;
+    const drift = phase.profile.variationId === 'drifting' || phase.profile.variationId === 'light-hazards' ? Math.sin(time / 420) * 20 : 0;
+    const pulse = phase.profile.variationId === 'pulsing' || phase.profile.variationId === 'light-hazards'
+      ? Math.sin(time / 180) * 5
+      : 0;
+    const nextX = phase.target.x + (phase.targetVelocityX + drift) * deltaSeconds;
+    const nextY = phase.target.y + phase.targetVelocityY * deltaSeconds;
+
+    if (nextX < phase.panel.left + phase.currentTargetRadius || nextX > phase.panel.right - phase.currentTargetRadius) {
+      phase.targetVelocityX *= -1;
+    }
+
+    if (nextY < phase.panel.top + phase.currentTargetRadius + 30 || nextY > phase.panel.bottom - phase.currentTargetRadius) {
+      phase.targetVelocityY *= -1;
+    }
+
+    phase.target.setPosition(
+      Phaser.Math.Clamp(nextX, phase.panel.left + phase.currentTargetRadius, phase.panel.right - phase.currentTargetRadius),
+      Phaser.Math.Clamp(nextY, phase.panel.top + phase.currentTargetRadius + 30, phase.panel.bottom - phase.currentTargetRadius)
+    );
+    phase.currentTargetRadius = Math.max(12, phase.targetBaseRadius + pulse);
+    (phase.target as unknown as { setRadius?: (radius: number) => void }).setRadius?.(phase.currentTargetRadius);
+  }
+
+  private finishTranquilizerPhase(phase: TranquilizerPhaseState): void {
+    this.tranquilizerPhase = undefined;
+    const dinosaurId = this.participants?.wild.creature.dinosaurId;
+
+    if (phase.succeeded && dinosaurId) {
+      const result = addTemporaryDebugCreatureToParty(dinosaurId, 'wild');
+      this.openMainMenu();
+      this.drawPanel('Tranquilized — temporary capture', [
+        'TEMPORARY PROTOTYPE SUCCESS — the creature was tranquilized.',
+        result.message,
+        'A normal/base owned creature instance was created with random gender and trait. Final capture odds, dart inventory, economy, and boss restrictions are not implemented.'
+      ]);
+      this.queueMessages(['The creature was tranquilized in the prototype capture sequence.', result.message]);
+      return;
+    }
+
+    this.openMainMenu();
+    this.drawPanel('Tranquilizer failed', [
+      'TEMPORARY PROTOTYPE FAILURE — lock-on was not held long enough before the timer expired.',
+      'Returned to the battle menu. Future upgrades, creature HP, level, rarity, and tranquilizer tuning will affect this sequence.'
+    ]);
+    this.queueMessages(['The tranquilizer attempt failed. Returned to the battle menu.']);
   }
 
   private selectTemporaryAction(action: BattleAction): void {
@@ -764,6 +974,7 @@ export class BattleScene extends Phaser.Scene {
 
     phase.hazards.forEach((hazard) => hazard.shape.destroy());
     this.actionPhase = undefined;
+    this.tranquilizerPhase = undefined;
     this.openMainMenu();
     this.queueMessages([
       resultLine,
