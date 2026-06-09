@@ -2,7 +2,8 @@ import Phaser from 'phaser';
 import { getInventoryCategoryLabel, getInventoryEntries } from '../data/inventory';
 import {
   getCreatureByInstanceId,
-  getKnownDinosaurName,
+  getCreatureSummaryLine,
+  getFossilProgressSummary,
   getTravelTeamSlots,
   loadPlayerState,
   swapTravelTeamSlots,
@@ -120,7 +121,7 @@ export class PartyMenu {
     const state = loadPlayerState();
     const slotLines = getTravelTeamSlots(state).map((slot, index) => {
       const creature = getCreatureByInstanceId(state, slot.creatureId);
-      const creatureName = creature ? getKnownDinosaurName(creature.dinosaurId) : 'empty';
+      const creatureName = creature ? getCreatureSummaryLine(creature) : 'empty';
       const marker = index === this.selectedSlotIndex ? '▶' : ' ';
       const selectedSuffix = index === this.selectedSlotIndex ? '  [selected]' : '';
       return `${marker} ${slot.label}: ${creatureName}${selectedSuffix}\n    ${slot.description}`;
@@ -131,7 +132,7 @@ export class PartyMenu {
       .join('\n');
 
     this.bodyText.setText([
-      `Researcher: ${state.playerName}   Owned: ${state.ownedCreatures.length}   Storage: ${state.islandStorageCreatureIds.length}`,
+      `Researcher: ${state.playerName}   Owned: ${state.ownedCreatures.length}   Storage: ${state.islandStorageCreatureIds.length}   Tranq Lv.${state.tranqGunUpgradeLevel}`,
       '',
       'Travel Team Slots',
       ...slotLines,
@@ -140,6 +141,9 @@ export class PartyMenu {
       '',
       'Field Pack preview',
       inventoryLines || '• No Field Pack entries found.',
+      '',
+      'Fossil bit progress (debug placeholder)',
+      ...getFossilProgressSummary(state).slice(0, 3).map((line) => `• ${line}`),
       '',
       `Story flags: ${Object.keys(state.storyFlags).length} · Systems remain scaffolding.`
     ].join('\n'));

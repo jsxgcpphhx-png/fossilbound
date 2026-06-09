@@ -1,8 +1,8 @@
 import { EARLY_GAME_DINOSAURS } from './dinosaurs';
 
 const PLACEHOLDER_SELECTION_CREATURE_IDS = [
-  'triceratops',
   'velociraptor',
+  'triceratops',
   'parasaurolophus'
 ] as const;
 

@@ -47,7 +47,7 @@ export interface BattleAction {
   phaseProfile?: TemporaryActionPhaseProfile;
 }
 
-export type BattleMenuMode = 'main' | 'observe' | 'actions' | 'field-pack' | 'action-phase';
+export type BattleMenuMode = 'main' | 'observe' | 'actions' | 'field-pack' | 'action-phase' | 'capture-phase';
 
 export interface BattleMenuState {
   mode: BattleMenuMode;
