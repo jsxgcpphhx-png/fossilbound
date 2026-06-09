@@ -142,7 +142,7 @@ declare namespace Phaser {
         ellipse(x: number, y: number, width: number, height: number, color: number, alpha?: number): GameObjects.Shape;
         triangle(x: number, y: number, x1: number, y1: number, x2: number, y2: number, x3: number, y3: number, color: number, alpha?: number): GameObjects.Shape;
         line(x: number, y: number, x1: number, y1: number, x2: number, y2: number, color: number, alpha?: number): GameObjects.Shape;
-        sprite(x: number, y: number, key: string): GameObjects.Sprite;
+        sprite(x: number, y: number, key: string, frame?: string | number): GameObjects.Sprite;
         image(x: number, y: number, key: string, frame?: string | number): GameObjects.Image;
         text(x: number, y: number, text: string, style?: object): GameObjects.Text;
       };

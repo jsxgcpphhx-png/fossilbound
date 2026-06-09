@@ -72,7 +72,10 @@ The GitHub Actions workflow in `.github/workflows/deploy-pages.yml` builds the a
 
 ## Tileset Notes
 
-- The overworld uses the uploaded tileset at `src/assets/tilesets/Overworld.png`.
-- Tileset inspection: the image is 1280×1152 px, arranged as a 40×36 grid of 32×32 px tiles.
-- Usable tiles include grass, dirt paths, cliffs, water, wood planks, stone, fences, houses, huts, tents, fountain/roost pieces, trees, flowers, reeds, rocks, crates, signs, roof pieces, market props, and castle props.
+- The overworld uses the uploaded art at `src/assets/tilesets/Overworld.png`, but the PNG is treated as a texture atlas/sprite sheet, **not** a uniform 32×32 tileset.
+- Atlas frame rectangles live in `src/data/textureAtlas.ts`. Add or adjust a texture by editing its `x`, `y`, `width`, and `height` source rectangle; those numbers are atlas pixels measured from the PNG top-left.
+- The logical movement/collision grid remains `TILE_SIZE` (`32`) so walking, saves, camera bounds, and simple collision footprints stay stable. Visual texture size is independent: rocks, reeds, trees, buildings, boardwalk pieces, and water frames may use different source sizes and origins.
+- `origin` controls the Phaser anchor, `drawOffset` moves the visual relative to a logical tile center, and `collisionFootprint` documents the intended simple movement footprint instead of using the full art bounds.
+- Animated atlas assets define explicit frame rectangles and frame order in `OVERWORLD_ANIMATIONS`; water currently loops the named `terrain.water.frame.*` rectangles without grid slicing the whole PNG.
+- Several rectangles are documented as approximate carry-forwards from the earlier implementation. If a texture looks misaligned, refine only that frame's atlas rectangle/offset in `src/data/textureAtlas.ts` rather than reintroducing automatic 32×32 sheet slicing.
 - No separate license or attribution text was included with the uploaded tileset in this repository; add creator/license attribution here if those terms are provided later.

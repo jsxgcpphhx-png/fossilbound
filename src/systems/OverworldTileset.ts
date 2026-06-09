@@ -1,103 +1,109 @@
 import Phaser from 'phaser';
 import { TILE_SIZE } from '../data/constants';
+import {
+  OVERWORLD_ANIMATIONS,
+  OVERWORLD_ATLAS_KEY,
+  OVERWORLD_ATLAS_URL,
+  OVERWORLD_TEXTURE_FRAMES,
+  TERRAIN_TEXTURES,
+  type PropTextureId,
+  type TextureAtlasFrame
+} from '../data/textureAtlas';
 
-const TILESET_URL = new URL('../assets/tilesets/Overworld.png', import.meta.url).href;
+export { OVERWORLD_ATLAS_KEY as OVERWORLD_TILESET_IMAGE_KEY } from '../data/textureAtlas';
+export const OVERWORLD_TILESET_LOGICAL_TILE_SIZE = TILE_SIZE;
 
-export const OVERWORLD_TILESET_IMAGE_KEY = 'overworld-tileset-image';
-export const OVERWORLD_TILESET_SHEET_KEY = 'overworld-tileset-sheet';
-export const OVERWORLD_TILESET_TILE_SIZE = 32;
-export const OVERWORLD_TILESET_COLUMNS = 40;
-export const OVERWORLD_TILESET_ROWS = 36;
-export const OVERWORLD_TILESET_WIDTH = OVERWORLD_TILESET_COLUMNS * OVERWORLD_TILESET_TILE_SIZE;
-export const OVERWORLD_TILESET_HEIGHT = OVERWORLD_TILESET_ROWS * OVERWORLD_TILESET_TILE_SIZE;
-
-export type TerrainTileCode = 'B' | 'g' | 'p' | 'd' | 'h' | 's' | 'n' | 'q' | 'w' | 'f' | 't' | 'F' | 'R' | 'r' | 'G' | 'm';
+export type TerrainTileCode = keyof typeof TERRAIN_TEXTURES;
 export type PropTileCode = 'crate' | 'rock' | 'flower' | 'sign' | 'fence' | 'reeds' | 'tree' | 'house' | 'lab' | 'hut' | 'tent' | 'roost';
 
-function frame(column: number, row: number): number {
-  return row * OVERWORLD_TILESET_COLUMNS + column;
-}
-
-const TERRAIN_FRAMES: Record<TerrainTileCode, number[]> = {
-  B: [frame(0, 17), frame(1, 17), frame(2, 17), frame(0, 18)],
-  g: [frame(0, 0), frame(1, 0), frame(0, 7), frame(1, 7), frame(15, 29)],
-  p: [frame(0, 30), frame(1, 30), frame(0, 31), frame(1, 31)],
-  d: [frame(13, 16), frame(14, 16), frame(13, 17), frame(14, 17)],
-  h: [frame(7, 2), frame(8, 2), frame(7, 3), frame(8, 3)],
-  s: [frame(23, 18), frame(24, 18), frame(23, 19), frame(24, 19)],
-  n: [frame(3, 27), frame(4, 27), frame(3, 28), frame(4, 28)],
-  q: [frame(31, 10), frame(32, 10), frame(31, 11), frame(32, 11)],
-  w: [frame(16, 0), frame(17, 0), frame(18, 0), frame(16, 1), frame(17, 1)],
-  f: [frame(2, 18), frame(3, 18)],
-  t: [frame(5, 17), frame(6, 17), frame(5, 18), frame(6, 18)],
-  F: [frame(0, 34), frame(1, 34), frame(2, 34)],
-  R: [frame(38, 1), frame(39, 1), frame(38, 2)],
-  r: [frame(0, 33), frame(1, 33), frame(2, 33)],
-  G: [frame(38, 1), frame(39, 1), frame(38, 2), frame(1, 34)],
-  m: [frame(0, 7), frame(1, 7), frame(0, 8), frame(1, 8)]
+type PhaserTextureWithAtlasFrames = {
+  setFilter(filterMode: Phaser.Textures.FilterMode): void;
+  add(name: string | number, sourceIndex: number, x: number, y: number, width: number, height: number): unknown;
+  has(name: string): boolean;
 };
 
-const PROP_FRAMES: Record<PropTileCode, number> = {
-  crate: frame(18, 16),
-  rock: frame(14, 11),
-  flower: frame(38, 1),
-  sign: frame(23, 22),
-  fence: frame(2, 18),
-  reeds: frame(38, 1),
-  tree: frame(5, 17),
-  house: frame(7, 2),
-  lab: frame(23, 18),
-  hut: frame(7, 2),
-  tent: frame(3, 27),
-  roost: frame(26, 9)
+type FrameRenderable = Phaser.GameObjects.Image | Phaser.GameObjects.Sprite;
+
+const PROP_FRAMES: Record<PropTileCode, PropTextureId> = {
+  crate: 'prop.crate',
+  rock: 'prop.rock',
+  flower: 'prop.flower',
+  sign: 'prop.sign',
+  fence: 'prop.fence',
+  reeds: 'prop.reeds',
+  tree: 'prop.tree',
+  house: 'prop.house',
+  lab: 'prop.lab',
+  hut: 'prop.hut',
+  tent: 'prop.tent',
+  roost: 'prop.roost'
 };
+
+const FRAME_LOOKUP = new Map<string, TextureAtlasFrame>(OVERWORLD_TEXTURE_FRAMES.map((frame) => [frame.id, frame]));
 
 export const OVERWORLD_TILESET_NOTES = [
-  'Uploaded tileset: src/assets/tilesets/Overworld.png',
-  `Image dimensions: ${OVERWORLD_TILESET_WIDTH}x${OVERWORLD_TILESET_HEIGHT}px`,
-  `Tile grid: ${OVERWORLD_TILESET_COLUMNS} columns x ${OVERWORLD_TILESET_ROWS} rows of ${OVERWORLD_TILESET_TILE_SIZE}px tiles`,
-  'Usable tiles include grass, dirt paths, cliffs, water, wood planks, stone, fences, houses, huts, tents, fountains/roost pieces, trees, flowers, reeds, rocks, crates, signs, market/castle props, and roof pieces.'
+  'Uploaded art: src/assets/tilesets/Overworld.png is treated as a texture atlas/sprite sheet, not a uniform 32x32 tileset.',
+  `Logical movement and collision cells remain ${TILE_SIZE}x${TILE_SIZE}px, but visual atlas rectangles may be any size.`,
+  'Frame rectangles, draw origins, draw offsets, collision-footprint notes, and water animation frames live in src/data/textureAtlas.ts.',
+  'Do not use Phaser spritesheet grid slicing for this PNG unless a documented sub-region is truly uniform.'
 ] as const;
 
 export function preloadOverworldTileset(scene: Phaser.Scene): void {
-  if (!scene.textures.exists(OVERWORLD_TILESET_IMAGE_KEY)) {
-    scene.load.image(OVERWORLD_TILESET_IMAGE_KEY, TILESET_URL);
-  }
-
-  if (!scene.textures.exists(OVERWORLD_TILESET_SHEET_KEY)) {
-    scene.load.spritesheet(OVERWORLD_TILESET_SHEET_KEY, TILESET_URL, {
-      frameWidth: OVERWORLD_TILESET_TILE_SIZE,
-      frameHeight: OVERWORLD_TILESET_TILE_SIZE,
-      spacing: 0,
-      margin: 0
-    });
+  if (!scene.textures.exists(OVERWORLD_ATLAS_KEY)) {
+    scene.load.image(OVERWORLD_ATLAS_KEY, OVERWORLD_ATLAS_URL);
   }
 }
 
 export function configureOverworldTileset(scene: Phaser.Scene): void {
-  [OVERWORLD_TILESET_IMAGE_KEY, OVERWORLD_TILESET_SHEET_KEY].forEach((textureKey) => {
-    const texture = scene.textures.get(textureKey);
-    texture?.setFilter(Phaser.Textures.FilterMode.NEAREST);
+  const texture = scene.textures.get(OVERWORLD_ATLAS_KEY) as unknown as PhaserTextureWithAtlasFrames | undefined;
+  if (!texture) return;
+
+  texture.setFilter(Phaser.Textures.FilterMode.NEAREST);
+
+  OVERWORLD_TEXTURE_FRAMES.forEach((frame) => {
+    if (!texture.has(frame.id)) {
+      texture.add(frame.id, 0, frame.x, frame.y, frame.width, frame.height);
+    }
   });
+
+  registerAtlasAnimations(scene);
 }
 
-export function addTerrainTile(scene: Phaser.Scene, tileCode: string, tileX: number, tileY: number, depth = 0): Phaser.GameObjects.Image {
-  const code = normalizeTerrainCode(tileCode);
-  const frames = TERRAIN_FRAMES[code];
-  const seed = Math.abs(tileX * 37 + tileY * 53 + tileCode.charCodeAt(0)) % frames.length;
-  return scene.add.image(tileX * TILE_SIZE + TILE_SIZE / 2, tileY * TILE_SIZE + TILE_SIZE / 2, OVERWORLD_TILESET_SHEET_KEY, frames[seed])
-    .setDisplaySize(TILE_SIZE, TILE_SIZE)
-    .setDepth(depth)
-    .setOrigin(0.5);
+export function addTerrainTile(scene: Phaser.Scene, tileCode: string, tileX: number, tileY: number, depth = 0): FrameRenderable {
+  const frameId = pickTerrainFrame(tileCode, tileX, tileY);
+  const x = tileX * TILE_SIZE + TILE_SIZE / 2;
+  const y = tileY * TILE_SIZE + TILE_SIZE / 2;
+
+  if (tileCode === 'w') {
+    const sprite = scene.add.sprite(x, y, OVERWORLD_ATLAS_KEY, frameId).setDepth(depth).setOrigin(0.5);
+    playAnimation(sprite, 'terrain.water');
+    return sprite;
+  }
+
+  return applyFramePlacement(scene.add.image(x, y, OVERWORLD_ATLAS_KEY, frameId), frameId, depth);
 }
 
 export function addPropTile(scene: Phaser.Scene, prop: PropTileCode, tileX: number, tileY: number, depth = 4): Phaser.GameObjects.Image {
-  return scene.add.image(tileX * TILE_SIZE + TILE_SIZE / 2, tileY * TILE_SIZE + TILE_SIZE / 2, OVERWORLD_TILESET_SHEET_KEY, PROP_FRAMES[prop])
-    .setDisplaySize(TILE_SIZE, TILE_SIZE)
-    .setDepth(depth)
-    .setOrigin(0.5);
+  const frameId = PROP_FRAMES[prop];
+  const { x, y } = frameWorldPosition(frameId, tileX, tileY);
+  return applyFramePlacement(scene.add.image(x, y, OVERWORLD_ATLAS_KEY, frameId), frameId, depth);
 }
 
+export function addAtlasTexture(
+  scene: Phaser.Scene,
+  frameId: string,
+  tileX: number,
+  tileY: number,
+  depth = 5
+): Phaser.GameObjects.Image {
+  const { x, y } = frameWorldPosition(frameId, tileX, tileY);
+  return applyFramePlacement(scene.add.image(x, y, OVERWORLD_ATLAS_KEY, frameId), frameId, depth);
+}
+
+/**
+ * Compatibility helper for older scene code. Prefer adding a named atlas frame in
+ * src/data/textureAtlas.ts and then drawing it with addAtlasTexture/addPropTile.
+ */
 export function addTilesetRegion(
   scene: Phaser.Scene,
   sourceX: number,
@@ -110,17 +116,59 @@ export function addTilesetRegion(
   displayHeight = sourceHeight,
   depth = 5
 ): Phaser.GameObjects.Image {
-  return scene.add.image(worldX, worldY, OVERWORLD_TILESET_IMAGE_KEY)
-    .setCrop(sourceX, sourceY, sourceWidth, sourceHeight)
-    .setDisplaySize(displayWidth, displayHeight)
-    .setDepth(depth)
-    .setOrigin(0.5);
+  const texture = scene.textures.get(OVERWORLD_ATLAS_KEY) as unknown as PhaserTextureWithAtlasFrames;
+  const frameId = `runtime.region.${sourceX}.${sourceY}.${sourceWidth}.${sourceHeight}`;
+  if (!texture.has(frameId)) texture.add(frameId, 0, sourceX, sourceY, sourceWidth, sourceHeight);
+
+  const image = scene.add.image(worldX, worldY, OVERWORLD_ATLAS_KEY, frameId).setDepth(depth).setOrigin(0.5);
+  if (displayWidth !== sourceWidth || displayHeight !== sourceHeight) {
+    // Kept only for legacy callers. New atlas mappings should preserve source size.
+    image.setDisplaySize(displayWidth, displayHeight);
+  }
+  return image;
 }
 
-function normalizeTerrainCode(tileCode: string): TerrainTileCode {
-  if (tileCode in TERRAIN_FRAMES) {
-    return tileCode as TerrainTileCode;
-  }
+function pickTerrainFrame(tileCode: string, tileX: number, tileY: number): string {
+  const frames = TERRAIN_TEXTURES[tileCode] ?? TERRAIN_TEXTURES.g;
+  const seed = Math.abs(tileX * 37 + tileY * 53 + tileCode.charCodeAt(0)) % frames.length;
+  return frames[seed];
+}
 
-  return 'g';
+function frameWorldPosition(frameId: string, tileX: number, tileY: number): { x: number; y: number } {
+  const frame = FRAME_LOOKUP.get(frameId);
+  const offset = frame?.drawOffset ?? { x: 0, y: 0 };
+  return {
+    x: tileX * TILE_SIZE + TILE_SIZE / 2 + offset.x,
+    y: tileY * TILE_SIZE + TILE_SIZE / 2 + offset.y
+  };
+}
+
+function applyFramePlacement<T extends FrameRenderable>(gameObject: T, frameId: string, depth: number): T {
+  const frame = FRAME_LOOKUP.get(frameId);
+  const origin = frame?.origin ?? { x: 0.5, y: 0.5 };
+  return gameObject.setDepth(depth).setOrigin(origin.x, origin.y) as T;
+}
+
+function registerAtlasAnimations(scene: Phaser.Scene): void {
+  const animationManager = (scene as unknown as {
+    anims?: {
+      exists?: (key: string) => boolean;
+      create?: (config: { key: string; frames: Array<{ key: string; frame: string }>; frameRate: number; repeat: number }) => unknown;
+    };
+  }).anims;
+
+  OVERWORLD_ANIMATIONS.forEach((animation) => {
+    if (!animationManager?.exists?.(animation.id)) {
+      animationManager?.create?.({
+        key: animation.id,
+        frames: animation.frameIds.map((frame) => ({ key: OVERWORLD_ATLAS_KEY, frame })),
+        frameRate: animation.frameRate,
+        repeat: animation.repeat
+      });
+    }
+  });
+}
+
+function playAnimation(sprite: Phaser.GameObjects.Sprite, key: string): void {
+  (sprite as unknown as { play?: (animationKey: string) => unknown }).play?.(key);
 }
