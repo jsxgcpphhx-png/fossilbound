@@ -56,6 +56,7 @@ export class FernTrailScene extends Phaser.Scene {
   private interactKeys?: Phaser.Input.Keyboard.Key[];
   private partyKeys?: Phaser.Input.Keyboard.Key[];
   private escapeKey?: Phaser.Input.Keyboard.Key;
+  private signTiles = new Map<string, { title: string; text: string }>();
 
   constructor() { super('FernTrailScene'); }
 
@@ -63,6 +64,7 @@ export class FernTrailScene extends Phaser.Scene {
 
   create(): void {
     this.cameras.main.setBackgroundColor('#1d3122');
+    this.signTiles.clear();
     this.drawMap();
     this.addTrailSigns();
 
@@ -112,7 +114,7 @@ export class FernTrailScene extends Phaser.Scene {
     if (this.isEscapePressed()) { if (this.partyMenu.isOpen()) { this.partyMenu.hide(); return; } if (this.dialogueBox.isOpen()) { this.dialogueBox.hide(); return; } }
     if (this.isInteractPressed()) {
       if (this.dialogueBox.isOpen()) this.dialogueBox.advance();
-      else this.dialogueBox.show('Fern Trail', 'The road bends from Amberleaf grassland into wetter fern beds. Encounter, battle, and capture values remain temporary scaffolding.');
+      else if (!this.tryReadSign()) this.dialogueBox.show('Fern Trail', 'The road bends from Amberleaf grassland into wetter fern beds. Encounter, battle, and capture values remain temporary scaffolding.');
       return;
     }
     if (this.dialogueBox.isOpen() || this.partyMenu.isOpen() || this.player.isMoving()) return;
@@ -153,10 +155,9 @@ export class FernTrailScene extends Phaser.Scene {
   }
 
   private addTrailSigns(): void {
-    this.add.text(22, 372, '← Amberleaf', labelStyle()).setDepth(30);
-    this.add.text(682, 330, 'Fossil Brush', labelStyle()).setDepth(30);
-    this.add.text(930, 374, 'Mossbank wetlands →', { ...labelStyle(), color: '#f0c878' }).setDepth(30);
-    [{ x: 5, y: 11 }, { x: 14, y: 12 }, { x: 24, y: 11 }, { x: 29, y: 13 }].forEach(({ x, y }) => this.drawSign(x, y));
+    this.registerSign({ x: 5, y: 11 }, 'Fern Trail', 'Fern Trail links Amberleaf Town to the wetter Mossbank boardwalk. Watch for brush movement in the tall ferns.');
+    this.registerSign({ x: 29, y: 13 }, 'Mossbank Wetlands', 'Mossbank Village is east. Follow the planks where the ground turns soft and waterlogged.');
+    [{ x: 14, y: 12 }, { x: 24, y: 11 }].forEach(({ x, y }) => this.drawSign(x, y));
     [{ x: 7, y: 9 }, { x: 17, y: 15 }, { x: 26, y: 8 }, { x: 30, y: 15 }].forEach(({ x, y }) => this.drawRock(x, y));
   }
 
@@ -221,6 +222,8 @@ export class FernTrailScene extends Phaser.Scene {
   private isInteractPressed(): boolean { return this.interactKeys?.some((key) => Phaser.Input.Keyboard.JustDown(key)) ?? false; }
   private isPartyMenuPressed(): boolean { return this.partyKeys?.some((key) => Phaser.Input.Keyboard.JustDown(key)) ?? false; }
   private isEscapePressed(): boolean { return this.escapeKey ? Phaser.Input.Keyboard.JustDown(this.escapeKey) : false; }
+  private tryReadSign(): boolean { if (!this.player || !this.dialogueBox) return false; const sign = this.signTiles.get(this.tileKey(this.player.getFacingTile())); if (!sign) return false; this.dialogueBox.show(sign.title, sign.text); return true; }
+  private registerSign(tile: TilePosition, title: string, text: string): void { this.drawSign(tile.x, tile.y); this.signTiles.set(this.tileKey(tile), { title, text }); }
 
   private handleMoveComplete(tile: TilePosition): void {
     if (this.previousPlayerTile) this.follower?.moveTo(this.previousPlayerTile);
@@ -241,12 +244,8 @@ export class FernTrailScene extends Phaser.Scene {
   private canEnterTile(tile: TilePosition): boolean {
     if (tile.x < 0 || tile.y < 0 || tile.x >= MAP_WIDTH || tile.y >= MAP_HEIGHT) return false;
     const terrain = TERRAIN[tile.y][tile.x];
-    return terrain !== 'B' && terrain !== 't' && terrain !== 'w';
+    return terrain !== 'B' && terrain !== 't' && terrain !== 'w' && !this.signTiles.has(this.tileKey(tile));
   }
   private getValidStartTile(candidate: TilePosition): TilePosition { return this.canEnterTile(candidate) ? candidate : START_TILE; }
   private tileKey(tile: TilePosition): string { return `${tile.x},${tile.y}`; }
-}
-
-function labelStyle(): Phaser.Types.GameObjects.Text.TextStyle {
-  return { backgroundColor: 'rgba(23, 37, 29, 0.78)', color: '#f8f3df', fontFamily: 'monospace', fontSize: '11px', padding: { x: 4, y: 2 } };
 }

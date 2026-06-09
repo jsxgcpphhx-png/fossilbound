@@ -14,7 +14,10 @@ export function configureOverworldCamera(scene: Phaser.Scene, options: Overworld
   const camera = scene.cameras.main;
   const worldWidth = options.mapWidth * TILE_SIZE;
   const worldHeight = options.mapHeight * TILE_SIZE;
-  const zoom = options.zoom ?? 1.18;
+  // Keep the primary camera close to 1:1 so fixed-position UI text is not
+  // magnified or clipped by overworld zoom. Visual intimacy comes from tile
+  // scale and props instead of zooming the whole render pass.
+  const zoom = Math.min(options.zoom ?? 1, 1);
   const lerp = options.lerp ?? 0.14;
 
   camera.setBounds(0, 0, worldWidth, worldHeight);

@@ -62,6 +62,7 @@ export class AmberleafTownScene extends Phaser.Scene {
   private partyKeys?: Phaser.Input.Keyboard.Key[];
   private escapeKey?: Phaser.Input.Keyboard.Key;
   private npcTiles = new Map<string, { name: string; dialogue: string }>();
+  private signTiles = new Map<string, { title: string; text: string }>();
 
   constructor() {
     super('AmberleafTownScene');
@@ -74,6 +75,7 @@ export class AmberleafTownScene extends Phaser.Scene {
   create(): void {
     this.cameras.main.setBackgroundColor('#223324');
     this.npcTiles.clear();
+    this.signTiles.clear();
     this.drawMap();
     this.createTownDetails();
 
@@ -122,7 +124,7 @@ export class AmberleafTownScene extends Phaser.Scene {
     }
     if (this.isInteractPressed()) {
       if (this.dialogueBox.isOpen()) this.dialogueBox.advance();
-      else this.tryTalkToNpc();
+      else if (!this.tryReadSign()) this.tryTalkToNpc();
       return;
     }
     if (this.dialogueBox.isOpen() || this.partyMenu.isOpen() || this.player.isMoving()) return;
@@ -155,13 +157,12 @@ export class AmberleafTownScene extends Phaser.Scene {
 
   private createTownDetails(): void {
     this.add.sprite(tileCenter(DR_SABLE_TILE).x, tileCenter(DR_SABLE_TILE).y, 'dr-sable').setDepth(9);
-    this.add.text(tileCenter(DR_SABLE_TILE).x - 28, tileCenter(DR_SABLE_TILE).y - 30, 'Dr. Sable', labelStyle()).setDepth(30);
     this.npcTiles.set(this.tileKey(DR_SABLE_TILE), { name: 'Dr. Sable', dialogue: DR_SABLE_DIALOGUE });
-    this.add.text(270, 186, 'Research Lab', labelStyle()).setDepth(30);
-    this.add.text(858, 356, 'Fern Trail →', labelStyle()).setDepth(30);
-    this.add.text(116, 410, 'Starter green', labelStyle()).setDepth(30);
+    this.registerSign({ x: 6, y: 12 }, 'Amberleaf Town', 'Amberleaf Town research green. The lab is north; Fern Trail leaves from the east road.');
+    this.registerSign({ x: 9, y: 6 }, "Dr. Sable's Lab", 'Field research lab. Please wipe mud off your boots before stepping inside.');
+    this.registerSign({ x: 27, y: 12 }, 'Fern Trail', 'Fern Trail east: ferns, fossil brush, and the path toward Mossbank Wetlands.');
     [{ x: 7, y: 10 }, { x: 18, y: 13 }, { x: 22, y: 10 }, { x: 25, y: 14 }].forEach(({ x, y }) => this.drawRock(x, y));
-    [{ x: 6, y: 12 }, { x: 16, y: 11 }, { x: 21, y: 12 }].forEach(({ x, y }) => this.drawCrate(x, y));
+    [{ x: 16, y: 11 }, { x: 21, y: 12 }].forEach(({ x, y }) => this.drawCrate(x, y));
   }
 
   private drawPathTexture(x: number, y: number, darker = false): void {
@@ -207,6 +208,12 @@ export class AmberleafTownScene extends Phaser.Scene {
   private drawWaterEdge(x: number, y: number): void {
     this.add.rectangle(x, y - 12, TILE_SIZE, 3, 0x9dd7c6, 0.25).setDepth(2);
     this.add.ellipse(x + 3, y + 2, 18, 5, 0x8cc9d8, 0.35).setDepth(2);
+  }
+
+  private drawSign(tileX: number, tileY: number): void {
+    const { x, y } = tileCenter({ x: tileX, y: tileY });
+    this.add.rectangle(x, y + 7, 4, 12, 0x6f4b2f).setDepth(4);
+    this.add.rectangle(x, y, 22, 10, 0xb4874d).setDepth(5).setStrokeStyle(1, 0x593928);
   }
 
   private drawRock(tileX: number, tileY: number): void {
@@ -260,10 +267,23 @@ export class AmberleafTownScene extends Phaser.Scene {
   private isPartyMenuPressed(): boolean { return this.partyKeys?.some((key) => Phaser.Input.Keyboard.JustDown(key)) ?? false; }
   private isEscapePressed(): boolean { return this.escapeKey ? Phaser.Input.Keyboard.JustDown(this.escapeKey) : false; }
 
+  private tryReadSign(): boolean {
+    if (!this.player || !this.dialogueBox) return false;
+    const sign = this.signTiles.get(this.tileKey(this.player.getFacingTile()));
+    if (!sign) return false;
+    this.dialogueBox.show(sign.title, sign.text);
+    return true;
+  }
+
   private tryTalkToNpc(): void {
     if (!this.player || !this.dialogueBox) return;
     const npc = this.npcTiles.get(this.tileKey(this.player.getFacingTile()));
     if (npc) this.dialogueBox.show(npc.name, npc.dialogue);
+  }
+
+  private registerSign(tile: TilePosition, title: string, text: string): void {
+    this.drawSign(tile.x, tile.y);
+    this.signTiles.set(this.tileKey(tile), { title, text });
   }
 
   private handleMoveComplete(tile: TilePosition): void {
@@ -285,19 +305,9 @@ export class AmberleafTownScene extends Phaser.Scene {
     if (tile.x < 0 || tile.y < 0 || tile.x >= MAP_WIDTH || tile.y >= MAP_HEIGHT) return false;
     const terrain = TERRAIN[tile.y][tile.x];
     const blockedTerrain = terrain === 'B' || terrain === 'h' || terrain === 'w' || terrain === 'f' || terrain === 't';
-    return !blockedTerrain && !this.npcTiles.has(this.tileKey(tile));
+    return !blockedTerrain && !this.npcTiles.has(this.tileKey(tile)) && !this.signTiles.has(this.tileKey(tile));
   }
 
   private getValidStartTile(candidate: TilePosition): TilePosition { return this.canEnterTile(candidate) ? candidate : START_TILE; }
   private tileKey(tile: TilePosition): string { return `${tile.x},${tile.y}`; }
-}
-
-function labelStyle(): Phaser.Types.GameObjects.Text.TextStyle {
-  return {
-    backgroundColor: 'rgba(23, 37, 29, 0.78)',
-    color: '#f8f3df',
-    fontFamily: 'monospace',
-    fontSize: '11px',
-    padding: { x: 4, y: 2 }
-  };
 }

@@ -10,34 +10,34 @@ import { DialogueBox } from '../ui/DialogueBox';
 import { PartyMenu } from '../ui/PartyMenu';
 import type { Direction, TilePosition } from '../types/grid';
 
-const START_TILE: TilePosition = { x: 1, y: 11 };
-const FERN_TRAIL_EXIT_TILE: TilePosition = { x: 0, y: 11 };
+const START_TILE: TilePosition = { x: 1, y: 12 };
+const FERN_TRAIL_EXIT_TILE: TilePosition = { x: 0, y: 12 };
 const FERN_TRAIL_RETURN_TILE: TilePosition = { x: 32, y: 12 };
 
 const TERRAIN = [
-  'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB',
-  'BmmmmmmgggggggttggggggmmmmmmBB',
-  'BmmwwwmggghhhgttggqqqgmmwwwBBB',
-  'BmmwwwmggghhhgggggqqqgmmwwwBBB',
-  'BmmmmpmmmmpppppppppgggmmmmmBBB',
-  'BggggppppppgggggpppgggggRRRBBB',
-  'BggghhhggpggssggpgggggggRRRBBB',
-  'BggghhhppppgssggppppgggggggBBB',
-  'BgggggggppggggggggpggtttgggBBB',
-  'BggnnnggppggttgmmmppggtttggBBB',
-  'BggnnnppppggttgmmmpppppppppBBB',
-  'pppppppggmmmmmmmmmmgggppggpBBB',
-  'BgrrggggmwwwwmgggRRgggppgggBBB',
-  'BgggggggmwwwwmgggRRggggggggBBB',
-  'BgggRRggmmmmmmgggggggggFgggBBB',
-  'BgggRRggggggpppppgggmmmmgggBBB',
-  'BgggggggggggpppppgggmwwwmggBBB',
+  'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB',
+  'BmmmmmggggggggttggggggmmmmmmmBBB',
+  'BmmwwwmggghhhggggggqqqgmmwwwBBB',
+  'BmmwwwmggghhhggggggqqqgmmwwwBBB',
+  'BmmmmpmmmmppppppppppgggmmmmBBBB',
+  'BggggppppppggggggpppggggRRRBBBB',
+  'BggghhhggpggsssngpggggggRRRBBBB',
+  'BggghhhppppgsssngppppggggggBBBB',
+  'BgggggggppgggggggggpggtttggBBB',
+  'BggnnnggppggttgmmmmppggtttggBBB',
+  'BggnnnppppggttgmmmmpppppppppBBB',
+  'BggggppggmmmmmmmmmmmgggppggpBBB',
+  'pppppppggmwwwwmgggRRgggppggpBBB',
+  'BgrrgggggmwwwwmgggRRggggggggBBB',
+  'BgggRRgggmmmmmmgggggggggFgggBBB',
+  'BgggRRggggggppppppgggmmmmgggBBB',
+  'BgggggggggggppppppgggmwwwmggBBB',
   'BttgggggggggggggggggmmmmmgtBBB',
-  'BttttgggggggggggggggggggtttBBB',
-  'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB',
+  'BttttgggggggggggggggggggtttBBBB',
+  'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB',
 ] as const;
 
-const MAP_WIDTH = TERRAIN[0].length;
+const MAP_WIDTH = Math.max(...TERRAIN.map((row) => row.length));
 const MAP_HEIGHT = TERRAIN.length;
 
 const NPCS = [
@@ -69,6 +69,7 @@ export class MossbankVillageScene extends Phaser.Scene {
   private partyKeys?: Phaser.Input.Keyboard.Key[];
   private escapeKey?: Phaser.Input.Keyboard.Key;
   private npcTiles = new Map<string, { name: string; dialogue: string }>();
+  private signTiles = new Map<string, { title: string; text: string }>();
 
   constructor() { super('MossbankVillageScene'); }
   preload(): void { createOverworldCharacterTextures(this); }
@@ -76,6 +77,7 @@ export class MossbankVillageScene extends Phaser.Scene {
   create(): void {
     this.cameras.main.setBackgroundColor('#203728');
     this.npcTiles.clear();
+    this.signTiles.clear();
     this.drawMap();
     this.createTownDetails();
 
@@ -109,7 +111,7 @@ export class MossbankVillageScene extends Phaser.Scene {
     if (this.isEscapePressed()) { if (this.partyMenu.isOpen()) { this.partyMenu.hide(); return; } if (this.dialogueBox.isOpen()) { this.dialogueBox.hide(); return; } }
     if (this.isInteractPressed()) {
       if (this.dialogueBox.isOpen()) this.dialogueBox.advance();
-      else if (!this.tryTalkToNpc()) this.dialogueBox.show('Mossbank Village', 'Boardwalks, reeds, tents, roost props, and wetland water edges are still polish scaffolding, not final progression content.');
+      else if (!this.tryReadSign() && !this.tryTalkToNpc()) this.dialogueBox.show('Mossbank', 'Marsh paths and boardwalks connect the whole wetland village. Signs mark landmarks without floating labels.');
       return;
     }
     if (this.dialogueBox.isOpen() || this.partyMenu.isOpen() || this.player.isMoving()) return;
@@ -120,10 +122,11 @@ export class MossbankVillageScene extends Phaser.Scene {
   private drawMap(): void {
     for (let y = 0; y < MAP_HEIGHT; y += 1) {
       for (let x = 0; x < MAP_WIDTH; x += 1) {
-        const tile = TERRAIN[y][x];
+        const tile = this.getTerrainAt({ x, y });
         const { x: centerX, y: centerY } = tileCenter({ x, y });
         this.add.rectangle(centerX, centerY, TILE_SIZE, TILE_SIZE, this.getTileColor(tile));
         this.add.rectangle(centerX, centerY + 12, TILE_SIZE, 8, 0x000000, 0.055);
+        this.drawGroundTexture(x, y, centerX, centerY, tile);
         if (tile === 'm') this.drawMarshGrass(centerX, centerY);
         if (tile === 'p') this.drawBoardwalk(centerX, centerY);
         if (tile === 'h') this.drawHut(centerX, centerY, 0xbf7d36, 0x6f4b2f);
@@ -155,18 +158,31 @@ export class MossbankVillageScene extends Phaser.Scene {
     }
   }
 
+  private drawGroundTexture(tileX: number, tileY: number, x: number, y: number, tile: string): void {
+    const seed = (tileX * 37 + tileY * 53) % 19;
+    if (tile === 'g' || tile === 'm') {
+      this.add.rectangle(x - 9 + (seed % 5), y - 8, 7, 2, tile === 'm' ? 0x7dab6d : 0x8bbd58, 0.26).setDepth(2);
+      this.add.rectangle(x + 6, y + 4 - (seed % 4), 6, 2, 0x355d3c, 0.18).setDepth(2);
+    }
+    if (tile === 'p') {
+      this.add.line(x, y, -13, -3, 13, -3, 0xc89a5d, 0.36).setDepth(3);
+      this.add.line(x, y, -13, 6, 13, 6, 0x6f4b2f, 0.24).setDepth(3);
+    }
+    if (tile === 'w') {
+      this.add.rectangle(x, y + 12, TILE_SIZE, 3, 0x2d6f7f, 0.32).setDepth(2);
+    }
+  }
+
   private createTownDetails(): void {
-    this.add.text(22, 338, '← Fern Trail', labelStyle()).setDepth(30);
-    this.add.text(570, 108, 'Quetzalcoatlus\nlanding roost', { ...labelStyle(), align: 'center' }).setDepth(30);
-    this.add.text(360, 190, 'Fossil shed', labelStyle()).setDepth(30);
-    this.add.text(92, 296, 'Field tents', labelStyle()).setDepth(30);
-    this.add.sprite(646, 128, 'quetzalcoatlus-placeholder').setDepth(12);
-    this.add.rectangle(656, 160, 84, 10, 0x000000, 0.16).setDepth(6);
+    this.add.sprite(790, 128, 'quetzalcoatlus-placeholder').setDepth(12);
+    this.add.ellipse(800, 160, 100, 14, 0x000000, 0.16).setDepth(6);
     this.drawProps();
+    this.registerSign({ x: 2, y: 11 }, 'Mossbank Wetlands', 'Mossbank Village research boardwalk. West returns to Fern Trail; east paths lead to the roost and marsh survey huts.');
+    this.registerSign({ x: 20, y: 5 }, 'Mossbank Village', 'Researchers keep dry huts on raised planks while the marsh is surveyed by boardwalk. Please stay on marked paths.');
+    this.registerSign({ x: 25, y: 10 }, 'Quetzalcoatlus Roost', 'Landing roost: tall perches, soft reed screens, and no sudden lantern flashes around resting carriers.');
     NPCS.forEach((npc) => {
       const { x, y } = tileCenter(npc.tile);
       this.add.sprite(x, y, 'generic-npc').setDepth(10);
-      this.add.text(x - 24, y - 29, npc.name, labelStyle()).setDepth(30);
       this.npcTiles.set(this.tileKey(npc.tile), { name: npc.name, dialogue: npc.dialogue });
     });
   }
@@ -175,7 +191,7 @@ export class MossbankVillageScene extends Phaser.Scene {
     [{ x: 3, y: 6 }, { x: 7, y: 11 }, { x: 15, y: 8 }, { x: 24, y: 10 }].forEach((crate) => this.drawCrate(crate.x, crate.y));
     [{ x: 2, y: 13 }, { x: 6, y: 14 }, { x: 17, y: 6 }, { x: 26, y: 6 }].forEach((rock) => this.drawRock(rock.x, rock.y));
     [{ x: 4, y: 4 }, { x: 13, y: 5 }, { x: 18, y: 12 }, { x: 25, y: 15 }].forEach((flower) => this.drawFlower(flower.x, flower.y));
-    [{ x: 2, y: 10 }, { x: 19, y: 4 }, { x: 27, y: 10 }].forEach((sign) => this.drawSign(sign.x, sign.y));
+
     for (let x = 20; x <= 26; x += 1) this.add.rectangle(x * TILE_SIZE + 16, 344, 22, 5, 0x8a6a3d).setDepth(4);
   }
 
@@ -185,11 +201,14 @@ export class MossbankVillageScene extends Phaser.Scene {
   }
   private drawMarshGrass(x: number, y: number): void { this.add.ellipse(x, y + 7, 22, 5, 0x355d3c, 0.2).setDepth(3); this.drawReeds(x, y); }
   private drawHut(x: number, y: number, wallColor: number, roofColor: number): void {
+    this.add.ellipse(x, y + 16, 34, 8, 0x000000, 0.16).setDepth(3);
     this.add.rectangle(x, y - 3, 28, 21, wallColor).setDepth(4);
-    this.add.rectangle(x, y - 15, 31, 8, roofColor).setDepth(5);
-    this.add.rectangle(x, y + 8, 10, 12, 0x2d1f16).setDepth(5);
-    this.add.rectangle(x + 9, y, 5, 5, 0xf0c878).setDepth(5);
-    this.add.rectangle(x, y + 13, 30, 4, 0x000000, 0.12).setDepth(3);
+    this.add.rectangle(x - 10, y - 2, 4, 18, 0xe0a35b, 0.22).setDepth(5);
+    this.add.rectangle(x, y - 15, 34, 8, roofColor).setDepth(5);
+    this.add.triangle(x, y - 23, 0, 10, 17, 0, 34, 10, roofColor).setDepth(6);
+    this.add.rectangle(x, y + 8, 10, 12, 0x2d1f16).setDepth(6);
+    this.add.rectangle(x + 9, y, 5, 5, 0xf0c878).setDepth(6);
+    this.add.rectangle(x - 9, y, 5, 5, 0x9dd7c6).setDepth(6);
   }
   private drawTent(x: number, y: number): void {
     this.add.rectangle(x, y + 2, 26, 18, 0xd6ad6a).setDepth(4).setStrokeStyle(2, 0x8a6a3d);
@@ -197,9 +216,11 @@ export class MossbankVillageScene extends Phaser.Scene {
     this.add.rectangle(x, y + 8, 7, 12, 0x2d1f16).setDepth(5);
   }
   private drawRoost(x: number, y: number): void {
-    this.add.rectangle(x, y + 8, 24, 8, 0x8a6a3d).setDepth(4);
-    this.add.rectangle(x - 8, y - 4, 4, 24, 0x6f4b2f).setDepth(5);
-    this.add.rectangle(x + 8, y - 4, 4, 24, 0x6f4b2f).setDepth(5);
+    this.add.ellipse(x, y + 14, 38, 8, 0x000000, 0.18).setDepth(3);
+    this.add.rectangle(x, y + 8, 30, 8, 0x8a6a3d).setDepth(4);
+    this.add.rectangle(x - 10, y - 5, 4, 26, 0x6f4b2f).setDepth(5);
+    this.add.rectangle(x + 10, y - 5, 4, 26, 0x6f4b2f).setDepth(5);
+    this.add.line(x, y - 5, -12, 0, 12, 0, 0xd6ad6a).setDepth(6);
   }
   private drawReeds(x: number, y: number): void {
     this.add.rectangle(x - 8, y + 5, 4, 18, 0x4f7a36).setRotation(-0.35).setDepth(4);
@@ -232,7 +253,9 @@ export class MossbankVillageScene extends Phaser.Scene {
   private isInteractPressed(): boolean { return this.interactKeys?.some((key) => Phaser.Input.Keyboard.JustDown(key)) ?? false; }
   private isPartyMenuPressed(): boolean { return this.partyKeys?.some((key) => Phaser.Input.Keyboard.JustDown(key)) ?? false; }
   private isEscapePressed(): boolean { return this.escapeKey ? Phaser.Input.Keyboard.JustDown(this.escapeKey) : false; }
+  private tryReadSign(): boolean { if (!this.player || !this.dialogueBox) return false; const sign = this.signTiles.get(this.tileKey(this.player.getFacingTile())); if (!sign) return false; this.dialogueBox.show(sign.title, sign.text); return true; }
   private tryTalkToNpc(): boolean { if (!this.player || !this.dialogueBox) return false; const npc = this.npcTiles.get(this.tileKey(this.player.getFacingTile())); if (!npc) return false; this.dialogueBox.show(npc.name, npc.dialogue); return true; }
+  private registerSign(tile: TilePosition, title: string, text: string): void { this.drawSign(tile.x, tile.y); this.signTiles.set(this.tileKey(tile), { title, text }); }
 
   private handleMoveComplete(tile: TilePosition): void {
     if (this.previousPlayerTile) this.follower?.moveTo(this.previousPlayerTile);
@@ -245,14 +268,11 @@ export class MossbankVillageScene extends Phaser.Scene {
   }
   private canEnterTile(tile: TilePosition): boolean {
     if (tile.x < 0 || tile.y < 0 || tile.x >= MAP_WIDTH || tile.y >= MAP_HEIGHT) return false;
-    const terrain = TERRAIN[tile.y][tile.x];
+    const terrain = this.getTerrainAt(tile);
     const blockedTerrain = terrain === 'B' || terrain === 'w' || terrain === 'h' || terrain === 's' || terrain === 'n' || terrain === 'q' || terrain === 't';
-    return !blockedTerrain && !this.npcTiles.has(this.tileKey(tile));
+    return !blockedTerrain && !this.npcTiles.has(this.tileKey(tile)) && !this.signTiles.has(this.tileKey(tile));
   }
   private getValidStartTile(candidate: TilePosition): TilePosition { return this.canEnterTile(candidate) ? candidate : START_TILE; }
+  private getTerrainAt(tile: TilePosition): string { return TERRAIN[tile.y]?.[tile.x] ?? 'B'; }
   private tileKey(tile: TilePosition): string { return `${tile.x},${tile.y}`; }
-}
-
-function labelStyle(): Phaser.Types.GameObjects.Text.TextStyle {
-  return { backgroundColor: 'rgba(23, 37, 29, 0.78)', color: '#f8f3df', fontFamily: 'monospace', fontSize: '11px', padding: { x: 4, y: 2 } };
 }
