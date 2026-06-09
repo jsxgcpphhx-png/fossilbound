@@ -10,7 +10,7 @@ import {
   tileCenter
 } from '../systems/OverworldCamera';
 import { createOverworldCharacterTextures } from '../systems/PixelPlaceholderSprites';
-import { addPropTile, addTerrainTile, addTilesetRegion, configureOverworldTileset, preloadOverworldTileset } from '../systems/OverworldTileset';
+import { addPropTile, addTerrainTile, configureOverworldTileset, preloadOverworldTileset } from '../systems/OverworldTileset';
 import { DebugPanel } from '../ui/DebugPanel';
 import { DialogueBox } from '../ui/DialogueBox';
 import { PartyMenu } from '../ui/PartyMenu';
@@ -177,7 +177,7 @@ export class AmberleafTownScene extends Phaser.Scene {
   }
 
   private drawLab(x: number, y: number): void {
-    addTilesetRegion(this, 736, 576, 96, 96, x, y - 16, 64, 64, 5);
+    addPropTile(this, 'lab', Math.floor(x / TILE_SIZE), Math.floor(y / TILE_SIZE), 5);
   }
 
   private drawTree(x: number, y: number): void {
