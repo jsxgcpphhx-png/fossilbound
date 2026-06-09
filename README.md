@@ -25,6 +25,8 @@ Fossilbound is a browser-based prehistoric creature RPG prototype inspired by cl
 - Inventory quantities are stored in `PlayerState` and persist through browser `localStorage` save/load.
 - Field Pack item behavior is placeholder-only; final capture/acquisition rules, item balance, economy, healing, field recovery, and progression are intentionally not implemented yet.
 - A developer-only Debug Add Creature action exists only as temporary acquisition scaffolding for testing party persistence.
+- Milestone 13 adds a 3-round tranquilizer lock-on capture prototype with difficulty-scaled targets, timers, obstacle patterns, and immediate obstacle-hit failure.
+- Capture tuning, dart economy, tranq gun upgrades, final roster, damage formulas, turn order, type balance, and fossil cave progression remain intentionally placeholder.
 
 ## Run Locally
 
@@ -58,8 +60,9 @@ npm run preview
 2. Press **Enter** or click the title screen to start.
 3. Move around Amberleaf Town with **Arrow keys** or **WASD**.
 4. Stand next to **Dr. Sable**, face her, and press **E** or **Space** to talk.
-5. Press **E** or **Space** again to close dialogue.
-6. Watch the top-left debug panel for your current tile coordinates.
+5. Press **E** or **Space** again to advance/close dialogue pages.
+6. In battle, choose **Capture** or Field Pack → **Tranq Sequence** to test the 3-round tranquilizer capture prototype.
+7. Watch the top-left debug panel for your current tile coordinates.
 
 ## Deployment
 
