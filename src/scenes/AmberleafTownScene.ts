@@ -1,42 +1,54 @@
 import Phaser from 'phaser';
-import { GAME_HEIGHT, GAME_WIDTH, TILE_SIZE } from '../data/constants';
+import { TILE_SIZE } from '../data/constants';
 import { loadPlayerState, updatePlayerPosition } from '../data/playerState';
 import { FollowerSprite } from '../systems/FollowerSprite';
 import { GridMover } from '../systems/GridMover';
+import {
+  addFixedLocationLabel,
+  configureOverworldCamera,
+  fadeToScene,
+  tileCenter
+} from '../systems/OverworldCamera';
 import { createOverworldCharacterTextures } from '../systems/PixelPlaceholderSprites';
 import { DebugPanel } from '../ui/DebugPanel';
 import { DialogueBox } from '../ui/DialogueBox';
 import { PartyMenu } from '../ui/PartyMenu';
 import type { Direction, TilePosition } from '../types/grid';
 
-const MAP_WIDTH = GAME_WIDTH / TILE_SIZE;
-const MAP_HEIGHT = GAME_HEIGHT / TILE_SIZE;
-const START_TILE: TilePosition = { x: 9, y: 9 };
-const LAB_DOOR_TILE: TilePosition = { x: 7, y: 5 };
+const START_TILE: TilePosition = { x: 13, y: 12 };
+const LAB_DOOR_TILE: TilePosition = { x: 10, y: 7 };
 const LAB_ENTRY_TILE: TilePosition = { x: 9, y: 12 };
-const FERN_TRAIL_EXIT_TILE: TilePosition = { x: 19, y: 10 };
-const FERN_TRAIL_ENTRY_TILE: TilePosition = { x: 1, y: 8 };
-const DR_SABLE_TILE: TilePosition = { x: 10, y: 7 };
+const FERN_TRAIL_EXIT_TILE: TilePosition = { x: 29, y: 12 };
+const FERN_TRAIL_ENTRY_TILE: TilePosition = { x: 1, y: 12 };
+const DR_SABLE_TILE: TilePosition = { x: 13, y: 8 };
 const DR_SABLE_DIALOGUE =
-  'Welcome to Amberleaf Town! These old roots hide newer mysteries. Our field guide now tracks real prehistoric creatures while final sprite art is prepared.';
+  'Amberleaf opens into Fern Trail now instead of ending at a hard screen edge. The fences, path, and tree line should guide your eye east.';
 
 const TERRAIN = [
-  'BBBBBBBBBBBBBBBBBBBB',
-  'BggggggggggggggggggB',
-  'BgggppppppppgggggggB',
-  'BgggphhhhpppggwwgggB',
-  'BgggphhhhpppggwwgggB',
-  'BgggppppppppggwwgggB',
-  'BggggggppggggggggggB',
-  'BgggffgppgffgggggggB',
-  'BgggffgppgffgggggggB',
-  'BggggggppggggggggggB',
-  'Bggppppppppppppggggp',
-  'BggpggggggggggpggggB',
-  'BggpggttggttggpggggB',
-  'BggggggggggggggggggB',
-  'BBBBBBBBBBBBBBBBBBBB'
+  'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB',
+  'BttttgggggggggggggggggttttttBB',
+  'BtggggggggffffggggggggggggttBB',
+  'BtggggpppppppppppggggwwggggtBB',
+  'BgggpphhhhpppphhhppgggwwggggBB',
+  'BgggpphhhhpppphhhppgggwwggggBB',
+  'BgggpphhhhpppppppppggwwgggggBB',
+  'BgggppppppdpppppggggggggggggBB',
+  'BggffffgggdgggffffggggggggggBB',
+  'BgggFgggggdgggggggggtttgggggBB',
+  'BgggggggppdppppgggggtttgggggBB',
+  'Bgggppppppdppppppppppppppppppp',
+  'BgggppggggdgggggggggggggggFppp',
+  'BgggppggttdttgggFgggggfffffppp',
+  'BgggggggttdttggggggggggggggBBB',
+  'BgggggggggdgggwwwwwgggRggggBBB',
+  'BgggFgggggggggwwwwwggRRRgggBBB',
+  'BttgggggggggggggggggggRggttBBB',
+  'BttttgggggggggggggggggggtttBBB',
+  'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB',
 ] as const;
+
+const MAP_WIDTH = TERRAIN[0].length;
+const MAP_HEIGHT = TERRAIN.length;
 
 export class AmberleafTownScene extends Phaser.Scene {
   private player?: GridMover;
@@ -56,25 +68,27 @@ export class AmberleafTownScene extends Phaser.Scene {
   }
 
   preload(): void {
-    this.createPlaceholderSprites();
+    createOverworldCharacterTextures(this);
   }
 
   create(): void {
     this.cameras.main.setBackgroundColor('#223324');
+    this.npcTiles.clear();
     this.drawMap();
-    this.createNpc();
+    this.createTownDetails();
 
     const savedState = loadPlayerState({ currentMap: 'AmberleafTownScene', currentPosition: START_TILE });
     const savedStartTile = this.getValidStartTile(
       savedState.currentMap === 'AmberleafTownScene' ? savedState.currentPosition : START_TILE
     );
-    const playerSprite = this.add.sprite(0, 0, 'player').setDepth(5);
+    const playerSprite = this.add.sprite(0, 0, 'player').setDepth(10);
     this.player = new GridMover({
       sprite: playerSprite,
       startTile: savedStartTile,
       canEnterTile: (tile) => this.canEnterTile(tile),
       onMoveComplete: (tile) => this.handleMoveComplete(tile)
     });
+    configureOverworldCamera(this, { mapWidth: MAP_WIDTH, mapHeight: MAP_HEIGHT, target: this.player.gameObject });
 
     this.follower = FollowerSprite.shouldCreate() ? new FollowerSprite(this, savedStartTile) : undefined;
     this.debugPanel = new DebugPanel(this);
@@ -84,286 +98,206 @@ export class AmberleafTownScene extends Phaser.Scene {
       getCurrentPosition: () => this.player?.currentTile ?? savedStartTile,
       onTravelToIslandBase: () => {
         this.dialogueBox?.show('Quetzalcoatlus', 'Quetzalcoatlus carries you toward your island base.');
-        this.scene.start('IslandBaseScene');
+        fadeToScene(this, 'IslandBaseScene');
       }
     });
     this.registerControls();
-    this.addLocationLabel();
+    addFixedLocationLabel(this, 'Amberleaf Town');
   }
 
   update(): void {
-    if (!this.player || !this.debugPanel || !this.dialogueBox || !this.partyMenu) {
-      return;
-    }
-
+    if (!this.player || !this.debugPanel || !this.dialogueBox || !this.partyMenu) return;
     this.debugPanel.update(this.player.currentTile);
     this.dialogueBox.update();
     this.partyMenu.update();
 
     if (this.isPartyMenuPressed()) {
-      if (this.dialogueBox.isOpen()) {
-        this.dialogueBox.hide();
-      }
+      if (this.dialogueBox.isOpen()) this.dialogueBox.hide();
       this.partyMenu.toggle();
       return;
     }
-
     if (this.isEscapePressed()) {
-      if (this.partyMenu.isOpen()) {
-        this.partyMenu.hide();
-        return;
-      }
-
-      if (this.dialogueBox.isOpen()) {
-        this.dialogueBox.hide();
-        return;
-      }
+      if (this.partyMenu.isOpen()) { this.partyMenu.hide(); return; }
+      if (this.dialogueBox.isOpen()) { this.dialogueBox.hide(); return; }
     }
-
     if (this.isInteractPressed()) {
-      if (this.dialogueBox.isOpen()) {
-        this.dialogueBox.advance();
-      } else {
-        this.tryTalkToNpc();
-      }
+      if (this.dialogueBox.isOpen()) this.dialogueBox.advance();
+      else this.tryTalkToNpc();
       return;
     }
-
-    if (this.dialogueBox.isOpen() || this.partyMenu.isOpen() || this.player.isMoving()) {
-      return;
-    }
-
+    if (this.dialogueBox.isOpen() || this.partyMenu.isOpen() || this.player.isMoving()) return;
     const direction = this.getPressedDirection();
-
     if (direction) {
       this.previousPlayerTile = this.player.currentTile;
       this.player.tryMove(direction);
     }
   }
 
-  private createPlaceholderSprites(): void {
-    createOverworldCharacterTextures(this);
-  }
-
   private drawMap(): void {
     for (let y = 0; y < MAP_HEIGHT; y += 1) {
       for (let x = 0; x < MAP_WIDTH; x += 1) {
         const tile = TERRAIN[y][x];
-        const centerX = x * TILE_SIZE + TILE_SIZE / 2;
-        const centerY = y * TILE_SIZE + TILE_SIZE / 2;
-        const color = this.getTileColor(tile);
+        const { x: centerX, y: centerY } = tileCenter({ x, y });
+        this.add.rectangle(centerX, centerY, TILE_SIZE, TILE_SIZE, this.getTileColor(tile));
+        this.add.rectangle(centerX, centerY + 12, TILE_SIZE, 8, 0x000000, 0.055);
 
-        this.add.rectangle(centerX, centerY, TILE_SIZE, TILE_SIZE, color);
-        this.add.rectangle(centerX, centerY + 12, TILE_SIZE, 8, 0x000000, 0.06);
-        this.add.rectangle(centerX, centerY, TILE_SIZE, TILE_SIZE, 0x000000, 0).setStrokeStyle(1, 0x000000, 0.08);
-
-        if (tile === 'h') {
-          this.add.rectangle(centerX, centerY - 3, 27, 20, 0x9a5f2d);
-          this.add.rectangle(centerX, centerY - 13, 29, 8, 0x6f4b2f);
-          this.add.rectangle(centerX, centerY + 9, 10, 10, 0x593928);
-          this.add.rectangle(centerX + 8, centerY + 1, 5, 5, 0xf0c878);
-        }
-
-        if (tile === 't') {
-          this.add.circle(centerX, centerY - 5, 13, 0x2f6f3e);
-          this.add.circle(centerX + 6, centerY - 9, 9, 0x386641);
-          this.add.rectangle(centerX, centerY + 9, 6, 12, 0x7a4f2b);
-        }
-
-        if (tile === 'f') {
-          this.add.rectangle(centerX, centerY + 1, 25, 8, 0x8a6a3d);
-          this.add.rectangle(centerX, centerY - 3, 25, 3, 0xb4874d);
-        }
-
-        if (x === LAB_DOOR_TILE.x && y === LAB_DOOR_TILE.y) {
-          this.add.rectangle(centerX, centerY - 8, 30, 20, 0x8a6a3d);
-          this.add.rectangle(centerX, centerY - 18, 34, 10, 0x6f4b2f);
-          this.add.rectangle(centerX, centerY + 4, 12, 16, 0x2d1f16);
-          this.add.circle(centerX + 4, centerY + 4, 1.5, 0xd99c3b);
-        }
+        if (tile === 'p' || tile === 'd') this.drawPathTexture(centerX, centerY, tile === 'd');
+        if (tile === 'h') this.drawHouse(centerX, centerY);
+        if (tile === 't') this.drawTree(centerX, centerY);
+        if (tile === 'f') this.drawFence(centerX, centerY);
+        if (tile === 'F') this.drawFlowerPatch(centerX, centerY);
+        if (tile === 'R') this.drawReeds(centerX, centerY);
+        if (tile === 'w') this.drawWaterEdge(centerX, centerY);
+        if (x === LAB_DOOR_TILE.x && y === LAB_DOOR_TILE.y) this.drawLab(centerX, centerY);
       }
     }
   }
 
+  private createTownDetails(): void {
+    this.add.sprite(tileCenter(DR_SABLE_TILE).x, tileCenter(DR_SABLE_TILE).y, 'dr-sable').setDepth(9);
+    this.add.text(tileCenter(DR_SABLE_TILE).x - 28, tileCenter(DR_SABLE_TILE).y - 30, 'Dr. Sable', labelStyle()).setDepth(30);
+    this.npcTiles.set(this.tileKey(DR_SABLE_TILE), { name: 'Dr. Sable', dialogue: DR_SABLE_DIALOGUE });
+    this.add.text(270, 186, 'Research Lab', labelStyle()).setDepth(30);
+    this.add.text(858, 356, 'Fern Trail →', labelStyle()).setDepth(30);
+    this.add.text(116, 410, 'Starter green', labelStyle()).setDepth(30);
+    [{ x: 7, y: 10 }, { x: 18, y: 13 }, { x: 22, y: 10 }, { x: 25, y: 14 }].forEach(({ x, y }) => this.drawRock(x, y));
+    [{ x: 6, y: 12 }, { x: 16, y: 11 }, { x: 21, y: 12 }].forEach(({ x, y }) => this.drawCrate(x, y));
+  }
+
+  private drawPathTexture(x: number, y: number, darker = false): void {
+    this.add.ellipse(x - 8, y + 3, 10, 5, darker ? 0x9b6d3f : 0xc18c52, 0.28);
+    this.add.ellipse(x + 9, y - 5, 9, 4, 0xf0c878, 0.18);
+  }
+
+  private drawHouse(x: number, y: number): void {
+    this.add.rectangle(x, y - 3, 27, 20, 0x9a5f2d).setDepth(2);
+    this.add.rectangle(x, y - 14, 31, 9, 0x6f4b2f).setDepth(3);
+    this.add.rectangle(x, y + 9, 10, 11, 0x593928).setDepth(3);
+    this.add.rectangle(x + 8, y, 5, 5, 0xf0c878).setDepth(3);
+    this.add.ellipse(x, y + 15, 30, 7, 0x000000, 0.14).setDepth(1);
+  }
+
+  private drawLab(x: number, y: number): void {
+    this.add.rectangle(x, y - 10, 31, 22, 0x8a6a3d).setDepth(4);
+    this.add.rectangle(x, y - 22, 36, 11, 0x3f543c).setDepth(5);
+    this.add.rectangle(x, y + 4, 12, 17, 0x2d1f16).setDepth(5);
+    this.add.circle(x + 4, y + 4, 1.5, 0xd99c3b).setDepth(6);
+  }
+
+  private drawTree(x: number, y: number): void {
+    this.add.circle(x, y - 6, 13, 0x2f6f3e).setDepth(4);
+    this.add.circle(x + 7, y - 10, 9, 0x386641).setDepth(5);
+    this.add.rectangle(x, y + 10, 6, 13, 0x7a4f2b).setDepth(3);
+  }
+
+  private drawFence(x: number, y: number): void {
+    this.add.rectangle(x, y + 1, 28, 8, 0x8a6a3d).setDepth(4);
+    this.add.rectangle(x, y - 5, 28, 3, 0xb4874d).setDepth(5);
+  }
+
+  private drawFlowerPatch(x: number, y: number): void {
+    [0xf0c878, 0xd99c3b, 0xf8f3df].forEach((color, index) => this.add.circle(x - 6 + index * 6, y + 6 - index, 2, color).setDepth(4));
+  }
+
+  private drawReeds(x: number, y: number): void {
+    this.add.rectangle(x - 7, y + 4, 3, 13, 0x6c8f43).setRotation(-0.24).setDepth(4);
+    this.add.rectangle(x + 7, y + 2, 3, 12, 0xaebf7a).setRotation(0.22).setDepth(4);
+  }
+
+  private drawWaterEdge(x: number, y: number): void {
+    this.add.rectangle(x, y - 12, TILE_SIZE, 3, 0x9dd7c6, 0.25).setDepth(2);
+    this.add.ellipse(x + 3, y + 2, 18, 5, 0x8cc9d8, 0.35).setDepth(2);
+  }
+
+  private drawRock(tileX: number, tileY: number): void {
+    const { x, y } = tileCenter({ x: tileX, y: tileY });
+    this.add.circle(x - 4, y + 5, 5, 0x6f6f5f).setDepth(4);
+    this.add.circle(x + 4, y + 4, 6, 0x8f8f78).setDepth(4);
+  }
+
+  private drawCrate(tileX: number, tileY: number): void {
+    const { x, y } = tileCenter({ x: tileX, y: tileY });
+    this.add.rectangle(x, y + 5, 16, 14, 0x8a6a3d).setDepth(4).setStrokeStyle(2, 0x593928);
+  }
+
   private getTileColor(tile: string): number {
     switch (tile) {
-      case 'B':
-        return 0x243b2a;
-      case 'p':
-        return 0xd6ad6a;
-      case 'h':
-        return 0xbf7d36;
-      case 'w':
-        return 0x4f8cad;
-      case 'f':
-        return 0x8a6a3d;
-      case 't':
-        return 0x386641;
-      default:
-        return 0x739f4f;
+      case 'B': return 0x243b2a;
+      case 'p': return 0xd6ad6a;
+      case 'd': return 0xbf8450;
+      case 'h': return 0xbf7d36;
+      case 'w': return 0x4f8cad;
+      case 'f': return 0x8a6a3d;
+      case 't': return 0x386641;
+      case 'F': return 0x83ad51;
+      case 'R': return 0x6c8f43;
+      default: return 0x739f4f;
     }
-  }
-
-  private createNpc(): void {
-    this.add.sprite(
-      DR_SABLE_TILE.x * TILE_SIZE + TILE_SIZE / 2,
-      DR_SABLE_TILE.y * TILE_SIZE + TILE_SIZE / 2,
-      'dr-sable'
-    ).setDepth(4);
-    this.add.text(DR_SABLE_TILE.x * TILE_SIZE - 28, DR_SABLE_TILE.y * TILE_SIZE - 30, 'Dr. Sable', {
-      backgroundColor: 'rgba(23, 37, 29, 0.78)',
-      color: '#f8f3df',
-      fontFamily: 'monospace',
-      fontSize: '12px',
-      padding: { x: 4, y: 2 }
-    }).setDepth(6);
-    this.npcTiles.set(this.tileKey(DR_SABLE_TILE), {
-      name: 'Dr. Sable',
-      dialogue: DR_SABLE_DIALOGUE
-    });
-
-    this.add.text(LAB_DOOR_TILE.x * TILE_SIZE - 34, LAB_DOOR_TILE.y * TILE_SIZE - 36, 'Research Lab', {
-      backgroundColor: 'rgba(23, 37, 29, 0.78)',
-      color: '#f8f3df',
-      fontFamily: 'monospace',
-      fontSize: '11px',
-      padding: { x: 4, y: 2 }
-    }).setDepth(6);
-
-    this.add.text(556, 326, 'Fern Trail', {
-      backgroundColor: 'rgba(23, 37, 29, 0.78)',
-      color: '#f8f3df',
-      fontFamily: 'monospace',
-      fontSize: '11px',
-      padding: { x: 4, y: 2 }
-    }).setDepth(6);
-  }
-
-  private addLocationLabel(): void {
-    const label = this.add.text(320, 46, 'Amberleaf Town', {
-      backgroundColor: 'rgba(248, 243, 223, 0.92)',
-      color: '#2d4632',
-      fontFamily: 'monospace',
-      fontSize: '20px',
-      fontStyle: 'bold',
-      padding: { x: 16, y: 8 }
-    }).setOrigin(0.5).setDepth(10);
-
-    this.tweens.add({
-      targets: label,
-      alpha: 0,
-      delay: 1400,
-      duration: 700,
-      onComplete: () => label.destroy()
-    });
   }
 
   private registerControls(): void {
     const keyboard = this.input.keyboard;
-
-    if (!keyboard) {
-      return;
-    }
-
+    if (!keyboard) return;
     this.movementKeys = {
-      up: [
-        keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.UP),
-        keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W)
-      ],
-      down: [
-        keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.DOWN),
-        keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S)
-      ],
-      left: [
-        keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.LEFT),
-        keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A)
-      ],
-      right: [
-        keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.RIGHT),
-        keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D)
-      ]
+      up: [keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.UP), keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W)],
+      down: [keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.DOWN), keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S)],
+      left: [keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.LEFT), keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A)],
+      right: [keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.RIGHT), keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D)]
     };
-    this.interactKeys = [
-      keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE),
-      keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E),
-      keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER)
-    ];
+    this.interactKeys = [keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE), keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E), keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER)];
     this.partyKeys = [keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.P)];
     this.escapeKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
   }
 
   private getPressedDirection(): Direction | undefined {
     const keyboard = this.input.keyboard;
-
-    if (!keyboard || !this.movementKeys) {
-      return undefined;
-    }
-
+    if (!keyboard || !this.movementKeys) return undefined;
     const directions: Direction[] = ['up', 'down', 'left', 'right'];
-    return directions.find((direction) =>
-      this.movementKeys?.[direction].some((key) => keyboard.checkDown(key, 110))
-    );
+    return directions.find((direction) => this.movementKeys?.[direction].some((key) => keyboard.checkDown(key, 110)));
   }
 
-  private isInteractPressed(): boolean {
-    return this.interactKeys?.some((key) => Phaser.Input.Keyboard.JustDown(key)) ?? false;
-  }
-
-  private isPartyMenuPressed(): boolean {
-    return this.partyKeys?.some((key) => Phaser.Input.Keyboard.JustDown(key)) ?? false;
-  }
-
-  private isEscapePressed(): boolean {
-    return this.escapeKey ? Phaser.Input.Keyboard.JustDown(this.escapeKey) : false;
-  }
+  private isInteractPressed(): boolean { return this.interactKeys?.some((key) => Phaser.Input.Keyboard.JustDown(key)) ?? false; }
+  private isPartyMenuPressed(): boolean { return this.partyKeys?.some((key) => Phaser.Input.Keyboard.JustDown(key)) ?? false; }
+  private isEscapePressed(): boolean { return this.escapeKey ? Phaser.Input.Keyboard.JustDown(this.escapeKey) : false; }
 
   private tryTalkToNpc(): void {
-    if (!this.player || !this.dialogueBox) {
-      return;
-    }
-
+    if (!this.player || !this.dialogueBox) return;
     const npc = this.npcTiles.get(this.tileKey(this.player.getFacingTile()));
-
-    if (npc) {
-      this.dialogueBox.show(npc.name, npc.dialogue);
-    }
+    if (npc) this.dialogueBox.show(npc.name, npc.dialogue);
   }
 
   private handleMoveComplete(tile: TilePosition): void {
-    if (this.previousPlayerTile) {
-      this.follower?.moveTo(this.previousPlayerTile);
-    }
+    if (this.previousPlayerTile) this.follower?.moveTo(this.previousPlayerTile);
     if (this.tileKey(tile) === this.tileKey(LAB_DOOR_TILE)) {
       updatePlayerPosition('LabScene', LAB_ENTRY_TILE);
-      this.scene.start('LabScene');
+      fadeToScene(this, 'LabScene');
       return;
     }
-
     if (this.tileKey(tile) === this.tileKey(FERN_TRAIL_EXIT_TILE)) {
       updatePlayerPosition('FernTrailScene', FERN_TRAIL_ENTRY_TILE);
-      this.scene.start('FernTrailScene');
+      fadeToScene(this, 'FernTrailScene');
       return;
     }
-
     updatePlayerPosition('AmberleafTownScene', tile);
   }
 
   private canEnterTile(tile: TilePosition): boolean {
-    if (tile.x < 0 || tile.y < 0 || tile.x >= MAP_WIDTH || tile.y >= MAP_HEIGHT) {
-      return false;
-    }
-
+    if (tile.x < 0 || tile.y < 0 || tile.x >= MAP_WIDTH || tile.y >= MAP_HEIGHT) return false;
     const terrain = TERRAIN[tile.y][tile.x];
     const blockedTerrain = terrain === 'B' || terrain === 'h' || terrain === 'w' || terrain === 'f' || terrain === 't';
-
     return !blockedTerrain && !this.npcTiles.has(this.tileKey(tile));
   }
 
-  private getValidStartTile(candidate: TilePosition): TilePosition {
-    return this.canEnterTile(candidate) ? candidate : START_TILE;
-  }
+  private getValidStartTile(candidate: TilePosition): TilePosition { return this.canEnterTile(candidate) ? candidate : START_TILE; }
+  private tileKey(tile: TilePosition): string { return `${tile.x},${tile.y}`; }
+}
 
-  private tileKey(tile: TilePosition): string {
-    return `${tile.x},${tile.y}`;
-  }
+function labelStyle(): Phaser.Types.GameObjects.Text.TextStyle {
+  return {
+    backgroundColor: 'rgba(23, 37, 29, 0.78)',
+    color: '#f8f3df',
+    fontFamily: 'monospace',
+    fontSize: '11px',
+    padding: { x: 4, y: 2 }
+  };
 }

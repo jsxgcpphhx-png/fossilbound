@@ -15,7 +15,7 @@ export class DebugPanel {
       lineSpacing: 3,
       padding: { x: 8, y: 5 },
       wordWrap: { width: 210 }
-    }).setDepth(100).setVisible(false);
+    }).setDepth(100).setScrollFactor(0).setVisible(false);
     this.toggleKey = scene.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.D);
   }
 

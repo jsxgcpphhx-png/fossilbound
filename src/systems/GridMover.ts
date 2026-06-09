@@ -32,6 +32,10 @@ export class GridMover {
     this.sprite.setPosition(this.toWorld(this.tile.x), this.toWorld(this.tile.y));
   }
 
+  get gameObject(): Phaser.GameObjects.Sprite {
+    return this.sprite;
+  }
+
   get currentTile(): TilePosition {
     return { ...this.tile };
   }

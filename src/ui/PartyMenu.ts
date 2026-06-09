@@ -40,26 +40,26 @@ export class PartyMenu {
   constructor(scene: Phaser.Scene, options: PartyMenuOptions = {}) {
     this.scene = scene;
     this.options = options;
-    const backdrop = scene.add.rectangle(320, 240, 590, 390, 0xf8f3df, 0.98).setStrokeStyle(5, 0x2d4632).setDepth(20);
-    const inner = scene.add.rectangle(320, 254, 542, 288, 0xefe2bf, 0.72).setStrokeStyle(2, 0xd99c3b, 0.48).setDepth(20);
+    const backdrop = scene.add.rectangle(320, 240, 590, 390, 0xf8f3df, 0.98).setStrokeStyle(5, 0x2d4632).setDepth(20).setScrollFactor(0);
+    const inner = scene.add.rectangle(320, 254, 542, 288, 0xefe2bf, 0.72).setStrokeStyle(2, 0xd99c3b, 0.48).setDepth(20).setScrollFactor(0);
     this.titleText = scene.add.text(48, 54, 'Travel Team', {
       color: '#2d4632',
       fontFamily: 'monospace',
       fontSize: '26px',
       fontStyle: 'bold'
-    }).setDepth(21);
+    }).setDepth(21).setScrollFactor(0);
     this.bodyText = scene.add.text(48, 94, '', {
       color: '#17251d',
       fontFamily: 'monospace',
       fontSize: '13px',
       lineSpacing: 4,
       wordWrap: { width: 524, useAdvancedWrap: true }
-    }).setDepth(21);
+    }).setDepth(21).setScrollFactor(0);
     this.promptText = scene.add.text(48, 420, '↑/↓ select · ←/→ swap slot · Q Island Base · P/Esc close', {
       color: '#6c7f43',
       fontFamily: 'monospace',
       fontSize: '14px'
-    }).setDepth(21);
+    }).setDepth(21).setScrollFactor(0);
 
     this.group = scene.add.group([backdrop, inner, this.titleText, this.bodyText, this.promptText]);
     this.registerControls();
