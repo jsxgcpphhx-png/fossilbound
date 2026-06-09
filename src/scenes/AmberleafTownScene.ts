@@ -11,6 +11,7 @@ import {
 } from '../systems/OverworldCamera';
 import { createOverworldCharacterTextures } from '../systems/PixelPlaceholderSprites';
 import { addPropTile, addTerrainTile, configureOverworldTileset, preloadOverworldTileset } from '../systems/OverworldTileset';
+import { actorDepthMetadata, updateWorldDepth, worldLayerDepth } from '../systems/WorldDepth';
 import { DebugPanel } from '../ui/DebugPanel';
 import { DialogueBox } from '../ui/DialogueBox';
 import { PartyMenu } from '../ui/PartyMenu';
@@ -86,7 +87,7 @@ export class AmberleafTownScene extends Phaser.Scene {
     const savedStartTile = this.getValidStartTile(
       savedState.currentMap === 'AmberleafTownScene' ? savedState.currentPosition : START_TILE
     );
-    const playerSprite = this.add.sprite(0, 0, 'player').setDepth(10);
+    const playerSprite = this.add.sprite(0, 0, 'player');
     this.player = new GridMover({
       sprite: playerSprite,
       startTile: savedStartTile,
@@ -157,7 +158,7 @@ export class AmberleafTownScene extends Phaser.Scene {
   }
 
   private createTownDetails(): void {
-    this.add.sprite(tileCenter(DR_SABLE_TILE).x, tileCenter(DR_SABLE_TILE).y, 'dr-sable').setDepth(9);
+    updateWorldDepth(this.add.sprite(tileCenter(DR_SABLE_TILE).x, tileCenter(DR_SABLE_TILE).y, 'dr-sable'), actorDepthMetadata());
     this.npcTiles.set(this.tileKey(DR_SABLE_TILE), { name: 'Dr. Sable', dialogue: DR_SABLE_DIALOGUE });
     this.registerSign({ x: 6, y: 12 }, 'Amberleaf Town', 'Amberleaf Town research green. The lab is north; Fern Trail leaves from the east road.');
     this.registerSign({ x: 9, y: 6 }, "Dr. Sable's Lab", 'Field research lab. Please wipe mud off your boots before stepping inside.');
@@ -167,12 +168,12 @@ export class AmberleafTownScene extends Phaser.Scene {
   }
 
   private drawPathTexture(x: number, y: number, darker = false): void {
-    this.add.ellipse(x - 8, y + 3, 10, 5, darker ? 0x9b6d3f : 0xc18c52, 0.18).setDepth(1);
-    this.add.ellipse(x + 9, y - 5, 9, 4, 0xf0c878, 0.1).setDepth(1);
+    this.add.ellipse(x - 8, y + 3, 10, 5, darker ? 0x9b6d3f : 0xc18c52, 0.18).setDepth(worldLayerDepth('path') + 1);
+    this.add.ellipse(x + 9, y - 5, 9, 4, 0xf0c878, 0.1).setDepth(worldLayerDepth('path') + 1);
   }
 
   private drawHouse(x: number, y: number): void {
-    this.add.ellipse(x, y + 15, 30, 7, 0x000000, 0.14).setDepth(1);
+    this.add.ellipse(x, y + 15, 30, 7, 0x000000, 0.14).setDepth(worldLayerDepth('path') + 1);
     addPropTile(this, 'house', Math.floor(x / TILE_SIZE), Math.floor(y / TILE_SIZE), 4);
   }
 
@@ -181,7 +182,7 @@ export class AmberleafTownScene extends Phaser.Scene {
   }
 
   private drawTree(x: number, y: number): void {
-    this.add.ellipse(x, y + 13, 24, 7, 0x000000, 0.12).setDepth(2);
+    this.add.ellipse(x, y + 13, 24, 7, 0x000000, 0.12).setDepth(worldLayerDepth('groundDecorations') + 2);
     addPropTile(this, 'tree', Math.floor(x / TILE_SIZE), Math.floor(y / TILE_SIZE), 5);
   }
 
@@ -198,8 +199,8 @@ export class AmberleafTownScene extends Phaser.Scene {
   }
 
   private drawWaterEdge(x: number, y: number): void {
-    this.add.rectangle(x, y - 12, TILE_SIZE, 3, 0x9dd7c6, 0.25).setDepth(2);
-    this.add.ellipse(x + 3, y + 2, 18, 5, 0x8cc9d8, 0.35).setDepth(2);
+    this.add.rectangle(x, y - 12, TILE_SIZE, 3, 0x9dd7c6, 0.25).setDepth(worldLayerDepth('water') + 1);
+    this.add.ellipse(x + 3, y + 2, 18, 5, 0x8cc9d8, 0.35).setDepth(worldLayerDepth('water') + 1);
   }
 
   private drawSign(tileX: number, tileY: number): void {

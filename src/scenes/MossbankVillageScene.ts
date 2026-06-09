@@ -6,6 +6,7 @@ import { GridMover } from '../systems/GridMover';
 import { addFixedLocationLabel, configureOverworldCamera, fadeToScene, tileCenter } from '../systems/OverworldCamera';
 import { createOverworldCharacterTextures } from '../systems/PixelPlaceholderSprites';
 import { addPropTile, addTerrainTile, configureOverworldTileset, preloadOverworldTileset } from '../systems/OverworldTileset';
+import { actorDepthMetadata, resolveWorldDepth, updateWorldDepth, worldLayerDepth } from '../systems/WorldDepth';
 import { DebugPanel } from '../ui/DebugPanel';
 import { DialogueBox } from '../ui/DialogueBox';
 import { PartyMenu } from '../ui/PartyMenu';
@@ -88,7 +89,7 @@ export class MossbankVillageScene extends Phaser.Scene {
 
     const savedState = loadPlayerState({ currentMap: 'MossbankVillageScene', currentPosition: START_TILE });
     const savedStartTile = this.getValidStartTile(savedState.currentMap === 'MossbankVillageScene' ? savedState.currentPosition : START_TILE);
-    const playerSprite = this.add.sprite(0, 0, 'player').setDepth(10);
+    const playerSprite = this.add.sprite(0, 0, 'player');
     this.player = new GridMover({ sprite: playerSprite, startTile: savedStartTile, canEnterTile: (tile) => this.canEnterTile(tile), onMoveComplete: (tile) => this.handleMoveComplete(tile) });
     this.follower = FollowerSprite.shouldCreate() ? new FollowerSprite(this, savedStartTile) : undefined;
     configureOverworldCamera(this, { mapWidth: MAP_WIDTH, mapHeight: MAP_HEIGHT, target: this.player.gameObject, zoom: 1.32 });
@@ -149,28 +150,28 @@ export class MossbankVillageScene extends Phaser.Scene {
   private drawGroundTexture(tileX: number, tileY: number, x: number, y: number, tile: string): void {
     const seed = (tileX * 37 + tileY * 53) % 19;
     if (tile === 'g' || tile === 'm') {
-      this.add.rectangle(x - 9 + (seed % 5), y - 8, 7, 2, tile === 'm' ? 0x7dab6d : 0x8bbd58, 0.26).setDepth(2);
-      this.add.rectangle(x + 6, y + 4 - (seed % 4), 6, 2, 0x355d3c, 0.18).setDepth(2);
+      this.add.rectangle(x - 9 + (seed % 5), y - 8, 7, 2, tile === 'm' ? 0x7dab6d : 0x8bbd58, 0.26).setDepth(worldLayerDepth('groundDecorations') + 1);
+      this.add.rectangle(x + 6, y + 4 - (seed % 4), 6, 2, 0x355d3c, 0.18).setDepth(worldLayerDepth('groundDecorations') + 1);
     }
     if (tile === 'p') {
-      this.add.line(x, y, -13, -3, 13, -3, 0xc89a5d, 0.36).setDepth(3);
-      this.add.line(x, y, -13, 6, 13, 6, 0x6f4b2f, 0.24).setDepth(3);
+      this.add.line(x, y, -13, -3, 13, -3, 0xc89a5d, 0.36).setDepth(worldLayerDepth('groundDecorations') + 1);
+      this.add.line(x, y, -13, 6, 13, 6, 0x6f4b2f, 0.24).setDepth(worldLayerDepth('groundDecorations') + 1);
     }
     if (tile === 'w') {
-      this.add.rectangle(x, y + 12, TILE_SIZE, 3, 0x2d6f7f, 0.32).setDepth(2);
+      this.add.rectangle(x, y + 12, TILE_SIZE, 3, 0x2d6f7f, 0.32).setDepth(worldLayerDepth('water') + 1);
     }
   }
 
   private createTownDetails(): void {
-    this.add.sprite(790, 128, 'quetzalcoatlus-placeholder').setDepth(12);
-    this.add.ellipse(800, 160, 100, 14, 0x000000, 0.16).setDepth(6);
+    updateWorldDepth(this.add.sprite(790, 128, 'quetzalcoatlus-placeholder'), { layer: 'ySortedWorld', depthMode: 'ySort', visualFootOffsetY: 32 });
+    this.add.ellipse(800, 160, 100, 14, 0x000000, 0.16).setDepth(worldLayerDepth('groundDecorations') + 2);
     this.drawProps();
     this.registerSign({ x: 2, y: 11 }, 'Mossbank Wetlands', 'Mossbank Village research boardwalk. West returns to Fern Trail; east paths lead to the roost and marsh survey huts.');
     this.registerSign({ x: 20, y: 5 }, 'Mossbank Village', 'Researchers keep dry huts on raised planks while the marsh is surveyed by boardwalk. Please stay on marked paths.');
     this.registerSign({ x: 25, y: 10 }, 'Quetzalcoatlus Roost', 'Landing roost: tall perches, soft reed screens, and no sudden lantern flashes around resting carriers.');
     NPCS.forEach((npc) => {
       const { x, y } = tileCenter(npc.tile);
-      this.add.sprite(x, y, 'generic-npc').setDepth(10);
+      updateWorldDepth(this.add.sprite(x, y, 'generic-npc'), actorDepthMetadata());
       this.npcTiles.set(this.tileKey(npc.tile), { name: npc.name, dialogue: npc.dialogue });
     });
   }
@@ -180,45 +181,48 @@ export class MossbankVillageScene extends Phaser.Scene {
     [{ x: 2, y: 13 }, { x: 6, y: 14 }, { x: 17, y: 6 }, { x: 26, y: 6 }].forEach((rock) => this.drawRock(rock.x, rock.y));
     [{ x: 4, y: 4 }, { x: 13, y: 5 }, { x: 18, y: 12 }, { x: 25, y: 15 }].forEach((flower) => this.drawFlower(flower.x, flower.y));
 
-    for (let x = 20; x <= 26; x += 1) this.add.rectangle(x * TILE_SIZE + 16, 344, 22, 5, 0x8a6a3d).setDepth(4);
+    for (let x = 20; x <= 26; x += 1) this.add.rectangle(x * TILE_SIZE + 16, 344, 22, 5, 0x8a6a3d).setDepth(worldLayerDepth('path') + 2);
   }
 
   private drawBoardwalk(x: number, y: number): void {
     addPropTile(this, 'fence', Math.floor(x / TILE_SIZE), Math.floor(y / TILE_SIZE), 3);
   }
-  private drawMarshGrass(x: number, y: number): void { this.add.ellipse(x, y + 7, 22, 5, 0x355d3c, 0.12).setDepth(3); this.drawReeds(x, y); }
+  private drawMarshGrass(x: number, y: number): void { this.add.ellipse(x, y + 7, 22, 5, 0x355d3c, 0.12).setDepth(worldLayerDepth('groundDecorations') + 1); this.drawReeds(x, y); }
   private drawHut(x: number, y: number, wallColor: number, roofColor: number): void {
-    this.add.ellipse(x, y + 16, 34, 8, 0x000000, 0.16).setDepth(3);
-    this.add.rectangle(x, y - 3, 28, 21, wallColor).setDepth(4);
-    this.add.rectangle(x - 10, y - 2, 4, 18, 0xe0a35b, 0.22).setDepth(5);
-    this.add.rectangle(x, y - 15, 34, 8, roofColor).setDepth(5);
-    this.add.triangle(x, y - 23, 0, 10, 17, 0, 34, 10, roofColor).setDepth(6);
-    this.add.rectangle(x, y + 8, 10, 12, 0x2d1f16).setDepth(6);
-    this.add.rectangle(x + 9, y, 5, 5, 0xf0c878).setDepth(6);
-    this.add.rectangle(x - 9, y, 5, 5, 0x9dd7c6).setDepth(6);
+    const baseDepth = resolveWorldDepth(y + 16, { layer: 'ySortedWorld', depthMode: 'ySort' });
+    this.add.ellipse(x, y + 16, 34, 8, 0x000000, 0.16).setDepth(worldLayerDepth('groundDecorations') + 2);
+    this.add.rectangle(x, y - 3, 28, 21, wallColor).setDepth(baseDepth);
+    this.add.rectangle(x - 10, y - 2, 4, 18, 0xe0a35b, 0.22).setDepth(baseDepth + 1);
+    this.add.rectangle(x, y - 15, 34, 8, roofColor).setDepth(baseDepth + 2);
+    this.add.triangle(x, y - 23, 0, 10, 17, 0, 34, 10, roofColor).setDepth(baseDepth + 3);
+    this.add.rectangle(x, y + 8, 10, 12, 0x2d1f16).setDepth(baseDepth + 4);
+    this.add.rectangle(x + 9, y, 5, 5, 0xf0c878).setDepth(baseDepth + 4);
+    this.add.rectangle(x - 9, y, 5, 5, 0x9dd7c6).setDepth(baseDepth + 4);
   }
   private drawTent(x: number, y: number): void {
-    this.add.rectangle(x, y + 2, 26, 18, 0xd6ad6a).setDepth(4).setStrokeStyle(2, 0x8a6a3d);
-    this.add.triangle(x, y - 14, 0, 18, 13, 0, 26, 18, 0x9a5f2d).setDepth(5);
-    this.add.rectangle(x, y + 8, 7, 12, 0x2d1f16).setDepth(5);
+    const baseDepth = resolveWorldDepth(y + 12, { layer: 'ySortedWorld', depthMode: 'ySort' });
+    this.add.rectangle(x, y + 2, 26, 18, 0xd6ad6a).setDepth(baseDepth).setStrokeStyle(2, 0x8a6a3d);
+    this.add.triangle(x, y - 14, 0, 18, 13, 0, 26, 18, 0x9a5f2d).setDepth(baseDepth + 2);
+    this.add.rectangle(x, y + 8, 7, 12, 0x2d1f16).setDepth(baseDepth + 3);
   }
   private drawRoost(x: number, y: number): void {
-    this.add.ellipse(x, y + 14, 38, 8, 0x000000, 0.18).setDepth(3);
-    this.add.rectangle(x, y + 8, 30, 8, 0x8a6a3d).setDepth(4);
-    this.add.rectangle(x - 10, y - 5, 4, 26, 0x6f4b2f).setDepth(5);
-    this.add.rectangle(x + 10, y - 5, 4, 26, 0x6f4b2f).setDepth(5);
-    this.add.line(x, y - 5, -12, 0, 12, 0, 0xd6ad6a).setDepth(6);
+    const baseDepth = resolveWorldDepth(y + 14, { layer: 'ySortedWorld', depthMode: 'ySort' });
+    this.add.ellipse(x, y + 14, 38, 8, 0x000000, 0.18).setDepth(worldLayerDepth('groundDecorations') + 2);
+    this.add.rectangle(x, y + 8, 30, 8, 0x8a6a3d).setDepth(baseDepth);
+    this.add.rectangle(x - 10, y - 5, 4, 26, 0x6f4b2f).setDepth(baseDepth + 1);
+    this.add.rectangle(x + 10, y - 5, 4, 26, 0x6f4b2f).setDepth(baseDepth + 1);
+    this.add.line(x, y - 5, -12, 0, 12, 0, 0xd6ad6a).setDepth(baseDepth + 2);
   }
   private drawReeds(x: number, y: number): void {
     addPropTile(this, 'reeds', Math.floor(x / TILE_SIZE), Math.floor(y / TILE_SIZE), 4);
   }
   private drawTree(x: number, y: number): void {
-    this.add.ellipse(x, y + 13, 24, 7, 0x000000, 0.12).setDepth(2);
+    this.add.ellipse(x, y + 13, 24, 7, 0x000000, 0.12).setDepth(worldLayerDepth('groundDecorations') + 2);
     addPropTile(this, 'tree', Math.floor(x / TILE_SIZE), Math.floor(y / TILE_SIZE), 5);
   }
   private drawWater(x: number, y: number): void {
-    this.add.rectangle(x, y - 12, TILE_SIZE, 3, 0x9dd7c6, 0.25).setDepth(2);
-    this.add.ellipse(x + 3, y + 2, 18, 5, 0x8cc9d8, 0.35).setDepth(2);
+    this.add.rectangle(x, y - 12, TILE_SIZE, 3, 0x9dd7c6, 0.25).setDepth(worldLayerDepth('water') + 1);
+    this.add.ellipse(x + 3, y + 2, 18, 5, 0x8cc9d8, 0.35).setDepth(worldLayerDepth('water') + 1);
   }
   private drawFlowerPatch(x: number, y: number): void { addPropTile(this, 'flower', Math.floor(x / TILE_SIZE), Math.floor(y / TILE_SIZE), 4); }
   private drawCrate(tileX: number, tileY: number): void { addPropTile(this, 'crate', tileX, tileY, 4); }
