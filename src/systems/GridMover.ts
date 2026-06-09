@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { TILE_SIZE } from '../data/constants';
 import type { Direction, TilePosition } from '../types/grid';
+import { actorDepthMetadata, updateWorldDepth } from './WorldDepth';
 
 const OFFSETS: Record<Direction, TilePosition> = {
   up: { x: 0, y: -1 },
@@ -30,6 +31,7 @@ export class GridMover {
     this.canEnterTile = options.canEnterTile;
     this.onMoveComplete = options.onMoveComplete;
     this.sprite.setPosition(this.toWorld(this.tile.x), this.toWorld(this.tile.y));
+    updateWorldDepth(this.sprite, actorDepthMetadata());
   }
 
   get gameObject(): Phaser.GameObjects.Sprite {
@@ -69,7 +71,9 @@ export class GridMover {
       y: this.toWorld(destination.y),
       duration: 140,
       ease: 'Sine.easeInOut',
+      onUpdate: () => updateWorldDepth(this.sprite, actorDepthMetadata()),
       onComplete: () => {
+        updateWorldDepth(this.sprite, actorDepthMetadata());
         this.moving = false;
         this.onMoveComplete?.(this.currentTile);
       }
@@ -96,7 +100,9 @@ export class GridMover {
       y: this.sprite.y + offset.y * 4,
       duration: 45,
       yoyo: true,
-      ease: 'Quad.easeOut'
+      ease: 'Quad.easeOut',
+      onUpdate: () => updateWorldDepth(this.sprite, actorDepthMetadata()),
+      onComplete: () => updateWorldDepth(this.sprite, actorDepthMetadata())
     });
   }
 

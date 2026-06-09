@@ -9,6 +9,7 @@ import {
   type PropTextureId,
   type TextureAtlasFrame
 } from '../data/textureAtlas';
+import { applyWorldDepth, resolveWorldDepth, worldLayerDepth, type DepthMetadata, type DepthOptions } from './WorldDepth';
 
 export { OVERWORLD_ATLAS_KEY as OVERWORLD_TILESET_IMAGE_KEY } from '../data/textureAtlas';
 export const OVERWORLD_TILESET_LOGICAL_TILE_SIZE = TILE_SIZE;
@@ -44,7 +45,7 @@ const FRAME_LOOKUP = new Map<string, TextureAtlasFrame>(OVERWORLD_TEXTURE_FRAMES
 export const OVERWORLD_TILESET_NOTES = [
   'Uploaded art: src/assets/tilesets/Overworld.png is treated as a texture atlas/sprite sheet, not a uniform 32x32 tileset.',
   `Logical movement and collision cells remain ${TILE_SIZE}x${TILE_SIZE}px, but visual atlas rectangles may be any size.`,
-  'Frame rectangles, draw origins, draw offsets, collision-footprint notes, and water animation frames live in src/data/textureAtlas.ts.',
+  'Frame rectangles, draw origins, draw offsets, collision-footprint notes, render-layer metadata, and water animation frames live in src/data/textureAtlas.ts.',
   'Do not use Phaser spritesheet grid slicing for this PNG unless a documented sub-region is truly uniform.'
 ] as const;
 
@@ -69,24 +70,24 @@ export function configureOverworldTileset(scene: Phaser.Scene): void {
   registerAtlasAnimations(scene);
 }
 
-export function addTerrainTile(scene: Phaser.Scene, tileCode: string, tileX: number, tileY: number, depth = 0): FrameRenderable {
+export function addTerrainTile(scene: Phaser.Scene, tileCode: string, tileX: number, tileY: number, depth?: number): FrameRenderable {
   const frameId = pickTerrainFrame(tileCode, tileX, tileY);
   const x = tileX * TILE_SIZE + TILE_SIZE / 2;
   const y = tileY * TILE_SIZE + TILE_SIZE / 2;
+  const frame = getAtlasFrame(frameId);
+  const tileDepth = depth ?? resolveWorldDepth(y, { layer: frame?.layer ?? terrainLayerFor(tileCode), depthMode: 'fixed' });
 
   if (tileCode === 'w') {
-    const sprite = scene.add.sprite(x, y, OVERWORLD_ATLAS_KEY, frameId).setDepth(depth).setOrigin(0.5);
+    const sprite = scene.add.sprite(x, y, OVERWORLD_ATLAS_KEY, frameId).setDepth(tileDepth).setOrigin(0.5);
     playAnimation(sprite, 'terrain.water');
     return sprite;
   }
 
-  return applyFramePlacement(scene.add.image(x, y, OVERWORLD_ATLAS_KEY, frameId), frameId, depth);
+  return applyFramePlacement(scene.add.image(x, y, OVERWORLD_ATLAS_KEY, frameId), frameId, tileDepth);
 }
 
-export function addPropTile(scene: Phaser.Scene, prop: PropTileCode, tileX: number, tileY: number, depth = 4): Phaser.GameObjects.Image {
-  const frameId = PROP_FRAMES[prop];
-  const { x, y } = frameWorldPosition(frameId, tileX, tileY);
-  return applyFramePlacement(scene.add.image(x, y, OVERWORLD_ATLAS_KEY, frameId), frameId, depth);
+export function addPropTile(scene: Phaser.Scene, prop: PropTileCode, tileX: number, tileY: number, depthOrOptions?: number | DepthOptions): Phaser.GameObjects.Image {
+  return addAtlasTexture(scene, PROP_FRAMES[prop], tileX, tileY, depthOrOptions);
 }
 
 export function addAtlasTexture(
@@ -94,10 +95,19 @@ export function addAtlasTexture(
   frameId: string,
   tileX: number,
   tileY: number,
-  depth = 5
+  depthOrOptions?: number | DepthOptions
 ): Phaser.GameObjects.Image {
   const { x, y } = frameWorldPosition(frameId, tileX, tileY);
-  return applyFramePlacement(scene.add.image(x, y, OVERWORLD_ATLAS_KEY, frameId), frameId, depth);
+  const image = applyFramePlacement(scene.add.image(x, y, OVERWORLD_ATLAS_KEY, frameId), frameId, 0);
+  const metadata = resolveFrameDepthMetadata(frameId, depthOrOptions);
+
+  if (typeof depthOrOptions === 'object' && depthOrOptions.depth !== undefined) {
+    image.setDepth(depthOrOptions.depth);
+  } else {
+    applyWorldDepth(image, metadata);
+  }
+
+  return image;
 }
 
 /**
@@ -114,18 +124,47 @@ export function addTilesetRegion(
   worldY: number,
   displayWidth = sourceWidth,
   displayHeight = sourceHeight,
-  depth = 5
+  depth?: number
 ): Phaser.GameObjects.Image {
   const texture = scene.textures.get(OVERWORLD_ATLAS_KEY) as unknown as PhaserTextureWithAtlasFrames;
   const frameId = `runtime.region.${sourceX}.${sourceY}.${sourceWidth}.${sourceHeight}`;
   if (!texture.has(frameId)) texture.add(frameId, 0, sourceX, sourceY, sourceWidth, sourceHeight);
 
-  const image = scene.add.image(worldX, worldY, OVERWORLD_ATLAS_KEY, frameId).setDepth(depth).setOrigin(0.5);
+  const image = scene.add.image(worldX, worldY, OVERWORLD_ATLAS_KEY, frameId).setOrigin(0.5);
+  image.setDepth(depth ?? resolveWorldDepth(worldY, { layer: 'ySortedWorld', depthMode: 'ySort' }));
   if (displayWidth !== sourceWidth || displayHeight !== sourceHeight) {
     // Kept only for legacy callers. New atlas mappings should preserve source size.
     image.setDisplaySize(displayWidth, displayHeight);
   }
   return image;
+}
+
+export function getAtlasFrame(frameId: string): TextureAtlasFrame | undefined {
+  return FRAME_LOOKUP.get(frameId);
+}
+
+function terrainLayerFor(tileCode: string): DepthMetadata['layer'] {
+  if (tileCode === 'w' || tileCode === 'm') return 'water';
+  if (tileCode === 'p' || tileCode === 'd' || tileCode === 'f' || tileCode === 's') return 'path';
+  if (tileCode === 'F' || tileCode === 'G' || tileCode === 'R' || tileCode === 'r') return 'groundDecorations';
+  return 'ground';
+}
+
+function resolveFrameDepthMetadata(frameId: string, depthOrOptions?: number | DepthOptions): DepthMetadata {
+  const frame = FRAME_LOOKUP.get(frameId);
+  const legacyLayer = typeof depthOrOptions === 'number' ? legacyDepthToLayer(depthOrOptions) : undefined;
+  return {
+    layer: (typeof depthOrOptions === 'object' ? depthOrOptions.layer : undefined) ?? frame?.layer ?? legacyLayer ?? 'ySortedWorld',
+    depthMode: (typeof depthOrOptions === 'object' ? depthOrOptions.depthMode : undefined) ?? frame?.depthMode ?? 'ySort',
+    visualFootOffsetY: (typeof depthOrOptions === 'object' ? depthOrOptions.visualFootOffsetY : undefined) ?? frame?.visualFootOffsetY,
+    overlapsPlayer: (typeof depthOrOptions === 'object' ? depthOrOptions.overlapsPlayer : undefined) ?? frame?.overlapsPlayer
+  };
+}
+
+function legacyDepthToLayer(depth: number): DepthMetadata['layer'] {
+  if (depth <= worldLayerDepth('groundDecorations')) return 'groundDecorations';
+  if (depth <= 4) return 'lowProps';
+  return 'ySortedWorld';
 }
 
 function pickTerrainFrame(tileCode: string, tileX: number, tileY: number): string {

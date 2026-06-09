@@ -3,6 +3,7 @@ import { TILE_SIZE } from '../data/constants';
 import { getCreatureByInstanceId, loadPlayerState } from '../data/playerState';
 import { createFollowerTexture } from './PixelPlaceholderSprites';
 import type { TilePosition } from '../types/grid';
+import { actorDepthMetadata, updateWorldDepth } from './WorldDepth';
 
 export class FollowerSprite {
   private readonly sprite: Phaser.GameObjects.Sprite;
@@ -11,7 +12,8 @@ export class FollowerSprite {
   constructor(scene: Phaser.Scene, startTile: TilePosition) {
     createFollowerTexture(scene);
     this.tile = { ...startTile };
-    this.sprite = scene.add.sprite(toWorld(startTile.x), toWorld(startTile.y), 'follower-placeholder').setDepth(4);
+    this.sprite = scene.add.sprite(toWorld(startTile.x), toWorld(startTile.y), 'follower-placeholder');
+    updateWorldDepth(this.sprite, actorDepthMetadata());
   }
 
   static shouldCreate(): boolean {
@@ -30,7 +32,9 @@ export class FollowerSprite {
       x: toWorld(tile.x),
       y: toWorld(tile.y),
       duration: 140,
-      ease: 'Sine.easeInOut'
+      ease: 'Sine.easeInOut',
+      onUpdate: () => updateWorldDepth(this.sprite, actorDepthMetadata()),
+      onComplete: () => updateWorldDepth(this.sprite, actorDepthMetadata())
     });
   }
 }
