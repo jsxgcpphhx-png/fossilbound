@@ -74,6 +74,10 @@ declare namespace Phaser {
       }
     }
 
+    namespace Textures {
+      enum FilterMode { NEAREST }
+    }
+
     namespace GameObjects {
       interface GameObject {
         setDepth(depth: number): this;
@@ -98,6 +102,10 @@ declare namespace Phaser {
 
       interface Rectangle extends GameObject {}
       interface Shape extends GameObject {}
+      interface Image extends GameObject {
+        setDisplaySize(width: number, height: number): this;
+        setCrop(x: number, y: number, width: number, height: number): this;
+      }
       interface Text extends GameObject {
         setText(text: string): this;
         setColor(color: string): this;
@@ -118,7 +126,15 @@ declare namespace Phaser {
       constructor(sceneConfig?: string | object);
       cameras: { main: Cameras.Scene2D.Camera; add(x: number, y: number, width: number, height: number, makeMain?: boolean, name?: string): Cameras.Scene2D.Camera };
       children: { list: GameObjects.GameObject[] };
-      textures: { createCanvas(key: string, width: number, height: number): CanvasTexture | null };
+      textures: {
+        createCanvas(key: string, width: number, height: number): CanvasTexture | null;
+        exists(key: string): boolean;
+        get(key: string): { setFilter(filterMode: Textures.FilterMode): void };
+      };
+      load: {
+        image(key: string, url: string): void;
+        spritesheet(key: string, url: string, config: { frameWidth: number; frameHeight: number; spacing?: number; margin?: number }): void;
+      };
       add: {
         circle(x: number, y: number, radius: number, color: number, alpha?: number): GameObjects.GameObject;
         group(children: unknown[]): GameObjects.Group;
@@ -127,6 +143,7 @@ declare namespace Phaser {
         triangle(x: number, y: number, x1: number, y1: number, x2: number, y2: number, x3: number, y3: number, color: number, alpha?: number): GameObjects.Shape;
         line(x: number, y: number, x1: number, y1: number, x2: number, y2: number, color: number, alpha?: number): GameObjects.Shape;
         sprite(x: number, y: number, key: string): GameObjects.Sprite;
+        image(x: number, y: number, key: string, frame?: string | number): GameObjects.Image;
         text(x: number, y: number, text: string, style?: object): GameObjects.Text;
       };
       input: {
