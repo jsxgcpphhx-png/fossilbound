@@ -4,6 +4,7 @@ import { GAME_HEIGHT, GAME_WIDTH } from './data/constants';
 import { AmberleafTownScene } from './scenes/AmberleafTownScene';
 import { BattleScene } from './scenes/BattleScene';
 import { FernTrailScene } from './scenes/FernTrailScene';
+import { IntroScene } from './scenes/IntroScene';
 import { IslandBaseScene } from './scenes/IslandBaseScene';
 import { LabScene } from './scenes/LabScene';
 import { MossbankVillageScene } from './scenes/MossbankVillageScene';
@@ -20,7 +21,7 @@ const config: Phaser.Types.Core.GameConfig = {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH
   },
-  scene: [TitleScene, AmberleafTownScene, LabScene, FernTrailScene, MossbankVillageScene, IslandBaseScene, BattleScene]
+  scene: [TitleScene, IntroScene, AmberleafTownScene, LabScene, FernTrailScene, MossbankVillageScene, IslandBaseScene, BattleScene]
 };
 
 new Phaser.Game(config);

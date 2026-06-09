@@ -11,6 +11,7 @@ export class TitleScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor('#1f2f24');
 
     this.add.rectangle(320, 240, 640, 480, 0x2d4632, 1);
+    this.add.rectangle(320, 240, 600, 440, 0x17251d, 0.24).setStrokeStyle(4, 0xd99c3b, 0.35);
     this.add.circle(320, 178, 82, 0xd99c3b, 1);
     this.add.circle(320, 178, 55, 0xf8f3df, 1);
     this.add.rectangle(320, 178, 126, 18, 0x1f2f24, 1).setRotation(-0.3);
@@ -33,14 +34,14 @@ export class TitleScene extends Phaser.Scene {
       strokeThickness: 6
     }).setOrigin(0.5);
 
-    this.add.text(320, 258, 'Visual Pipeline Prototype', {
+    this.add.text(320, 258, 'Field research adventure prototype', {
       color: '#d99c3b',
       fontFamily: 'monospace',
       fontSize: '22px'
     }).setOrigin(0.5);
 
     const hasSave = hasSavedPlayerState();
-    const startText = this.add.text(320, 326, hasSave ? 'Enter/Click: Continue   N: New' : 'Press Enter or Click to Start', {
+    const startText = this.add.text(320, 320, hasSave ? 'Enter / Click  Continue' : 'Enter / Click  New Game Intro', {
       color: '#f8f3df',
       fontFamily: 'monospace',
       fontSize: '20px'
@@ -70,17 +71,23 @@ export class TitleScene extends Phaser.Scene {
       fontSize: '11px'
     }).setOrigin(0.5);
 
+    this.add.text(320, 352, 'N: New field arrival intro · Continue skips intro from save data', {
+      color: '#aebf7a',
+      fontFamily: 'monospace',
+      fontSize: '13px'
+    }).setOrigin(0.5);
+
     if (hasSave) {
-      this.add.text(320, 356, 'Continue option appears because local save data exists.', {
+      this.add.text(320, 374, 'Local save found.', {
         color: '#aebf7a',
         fontFamily: 'monospace',
         fontSize: '13px'
       }).setOrigin(0.5);
     }
 
-    this.input.keyboard?.once('keydown-ENTER', () => this.continueGame());
+    this.input.keyboard?.once('keydown-ENTER', () => (hasSave ? this.continueGame() : this.startNewGame()));
     this.input.keyboard?.once('keydown-N', () => this.startNewGame());
-    this.input.once('pointerdown', () => this.continueGame());
+    this.input.once('pointerdown', () => (hasSave ? this.continueGame() : this.startNewGame()));
   }
 
   private continueGame(): void {
@@ -95,7 +102,7 @@ export class TitleScene extends Phaser.Scene {
 
   private startNewGame(): void {
     clearPlayerState();
-    savePlayerState(createDefaultPlayerState());
-    this.scene.start('AmberleafTownScene');
+    savePlayerState(createDefaultPlayerState({ storyFlags: { openingIntroSeen: false } }));
+    this.scene.start('IntroScene');
   }
 }

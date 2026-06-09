@@ -126,7 +126,7 @@ export class BattleScene extends Phaser.Scene {
       this.changeSelection(1);
     }
 
-    if (Phaser.Input.Keyboard.JustDown(this.actionKeys[0])) {
+    if (Phaser.Input.Keyboard.JustDown(this.actionKeys[0]) || Phaser.Input.Keyboard.JustDown(this.actionKeys[6])) {
       this.confirmOrAdvanceMessage();
     }
 
@@ -323,6 +323,7 @@ export class BattleScene extends Phaser.Scene {
 
   private drawMessageAndMenu(): void {
     this.add.rectangle(320, 426, 612, 118, 0xf8f3df, 0.98).setStrokeStyle(5, 0x2d4632);
+    this.add.rectangle(214, 426, 366, 88, 0xefe2bf, 0.72).setStrokeStyle(2, 0xd99c3b, 0.42);
     this.messageText = this.add.text(38, 384, '', {
       color: '#17251d',
       fontFamily: 'monospace',
@@ -336,7 +337,7 @@ export class BattleScene extends Phaser.Scene {
       fontSize: '18px',
       fontStyle: 'bold'
     });
-    this.add.text(38, 456, 'Controls: arrows choose · Enter next/confirm · Esc back · F flee · O/A/P shortcuts', {
+    this.add.text(38, 456, 'Controls: arrows choose · Space/Enter confirm · Esc back · F flee · O/A/P shortcuts', {
       color: '#6c7f43',
       fontFamily: 'monospace',
       fontSize: '11px'
@@ -371,7 +372,8 @@ export class BattleScene extends Phaser.Scene {
       this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.ESC),
       this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.O),
       this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.A),
-      this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.P)
+      this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.P),
+      this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE)
     ];
     this.phaseKeys = {
       left: [this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.LEFT), this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.A)],
@@ -728,7 +730,7 @@ export class BattleScene extends Phaser.Scene {
 
     const x = Phaser.Math.Between(phase.panel.left + 10, phase.panel.right - 10);
     const radius = Phaser.Math.Between(5, 8);
-    const shape = this.add.circle(x, phase.panel.top - 8, radius, profile.hazardColor, 0.96).setStrokeStyle(1, 0xf8f3df, 0.55);
+    const shape = this.add.circle(x, phase.panel.top - 8, radius, profile.hazardColor, 0.96).setStrokeStyle(2, 0xf8f3df, 0.78);
     const drift = Phaser.Math.Between(-20, 20);
     phase.hazards.push({ shape, velocityX: drift, velocityY: profile.hazardSpeed, radius });
     this.panelObjects.push(shape);

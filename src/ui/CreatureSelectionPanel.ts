@@ -18,7 +18,7 @@ export class CreatureSelectionPanel {
     this.creatures = options.creatures;
     this.onChoose = options.onChoose;
 
-    const backdrop = scene.add.rectangle(320, 240, 596, 380, 0xf8f3df, 0.98).setStrokeStyle(4, 0x2d4632).setDepth(30);
+    const backdrop = scene.add.rectangle(320, 240, 596, 396, 0xf8f3df, 0.98).setStrokeStyle(5, 0x2d4632).setDepth(30);
     const titleText = scene.add.text(48, 70, 'Placeholder Creature Selection', {
       color: '#2d4632',
       fontFamily: 'monospace',
@@ -45,14 +45,17 @@ export class CreatureSelectionPanel {
     const children: Phaser.GameObjects.GameObject[] = [backdrop, titleText, noteText, promptText];
 
     this.creatures.forEach((creature, index) => {
-      const x = 62 + index * 180;
-      const card = scene.add.rectangle(x + 80, 246, 160, 180, 0xf0c878, 0.45).setStrokeStyle(2, 0x8a6a3d).setDepth(31);
-      const text = scene.add.text(x + 14, 174, '', {
+      const column = index % 3;
+      const row = Math.floor(index / 3);
+      const x = 64 + column * 174;
+      const y = 154 + row * 104;
+      const card = scene.add.rectangle(x + 78, y + 44, 158, 94, 0xf0c878, 0.45).setStrokeStyle(2, 0x8a6a3d).setDepth(31);
+      const text = scene.add.text(x + 10, y + 6, '', {
         color: '#17251d',
         fontFamily: 'monospace',
-        fontSize: '14px',
-        lineSpacing: 5,
-        wordWrap: { width: 132 }
+        fontSize: '12px',
+        lineSpacing: 3,
+        wordWrap: { width: 138, useAdvancedWrap: true }
       }).setDepth(32);
 
       this.cardTexts.push(text);
@@ -100,7 +103,10 @@ export class CreatureSelectionPanel {
     this.cardTexts.forEach((text, index) => {
       const creature = this.creatures[index];
       const selectedMarker = index === this.selectedIndex ? '▶ ' : '  ';
-      text.setText(`${selectedMarker}${creature.displayName}\n\n${creature.prehistoricGroup}\n\n${creature.shortDescription}`);
+      const shortDescription = creature.shortDescription.length > 68
+        ? `${creature.shortDescription.slice(0, 65)}...`
+        : creature.shortDescription;
+      text.setText(`${selectedMarker}${creature.displayName}\n${creature.prehistoricGroup}\n${shortDescription}`);
     });
   }
 }

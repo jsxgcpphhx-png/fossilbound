@@ -39,7 +39,8 @@ export class PartyMenu {
   constructor(scene: Phaser.Scene, options: PartyMenuOptions = {}) {
     this.scene = scene;
     this.options = options;
-    const backdrop = scene.add.rectangle(320, 240, 590, 390, 0xf8f3df, 0.98).setStrokeStyle(4, 0x2d4632).setDepth(20);
+    const backdrop = scene.add.rectangle(320, 240, 590, 390, 0xf8f3df, 0.98).setStrokeStyle(5, 0x2d4632).setDepth(20);
+    const inner = scene.add.rectangle(320, 254, 542, 288, 0xefe2bf, 0.72).setStrokeStyle(2, 0xd99c3b, 0.48).setDepth(20);
     this.titleText = scene.add.text(48, 54, 'Travel Team', {
       color: '#2d4632',
       fontFamily: 'monospace',
@@ -49,9 +50,9 @@ export class PartyMenu {
     this.bodyText = scene.add.text(48, 94, '', {
       color: '#17251d',
       fontFamily: 'monospace',
-      fontSize: '14px',
-      lineSpacing: 5,
-      wordWrap: { width: 542 }
+      fontSize: '13px',
+      lineSpacing: 4,
+      wordWrap: { width: 524, useAdvancedWrap: true }
     }).setDepth(21);
     this.promptText = scene.add.text(48, 420, '↑/↓ select · ←/→ swap slot · Q Island Base · P/Esc close', {
       color: '#6c7f43',
@@ -59,7 +60,7 @@ export class PartyMenu {
       fontSize: '14px'
     }).setDepth(21);
 
-    this.group = scene.add.group([backdrop, this.titleText, this.bodyText, this.promptText]);
+    this.group = scene.add.group([backdrop, inner, this.titleText, this.bodyText, this.promptText]);
     this.registerControls();
     this.hide();
   }
@@ -121,28 +122,26 @@ export class PartyMenu {
       const creature = getCreatureByInstanceId(state, slot.creatureId);
       const creatureName = creature ? getKnownDinosaurName(creature.dinosaurId) : 'empty';
       const marker = index === this.selectedSlotIndex ? '▶' : ' ';
-      return `${marker} ${slot.label}: ${creatureName}\n   ${slot.description}`;
+      const selectedSuffix = index === this.selectedSlotIndex ? '  [selected]' : '';
+      return `${marker} ${slot.label}: ${creatureName}${selectedSuffix}\n    ${slot.description}`;
     });
     const inventoryLines = getInventoryEntries(state.inventory)
-      .map((item) => `${item.displayName} x${item.quantity} (${getInventoryCategoryLabel(item.category)})`)
+      .slice(0, 4)
+      .map((item) => `• ${item.displayName} x${item.quantity} · ${getInventoryCategoryLabel(item.category)}`)
       .join('\n');
 
     this.bodyText.setText([
-      `Researcher: ${state.playerName}`,
+      `Researcher: ${state.playerName}   Owned: ${state.ownedCreatures.length}   Storage: ${state.islandStorageCreatureIds.length}`,
       '',
+      'Travel Team Slots',
       ...slotLines,
       '',
-      `Island Storage count: ${state.islandStorageCreatureIds.length}`,
+      'Notes: Lead = battle placeholder · Follow = overworld companion · Carrier = Quetzalcoatlus backup slots.',
       '',
-      'Lead = primary battle creature.',
-      'Follow = visible overworld companion.',
-      'Carrier = backup creatures carried by Quetzalcoatlus.',
-      'Island Base = storage for non-traveling creatures.',
+      'Field Pack preview',
+      inventoryLines || '• No Field Pack entries found.',
       '',
-      'Field Pack:',
-      inventoryLines || 'No Field Pack entries found.',
-      '',
-      `Owned placeholder creatures: ${state.ownedCreatures.length} · Story flags: ${Object.keys(state.storyFlags).length}`
+      `Story flags: ${Object.keys(state.storyFlags).length} · Systems remain scaffolding.`
     ].join('\n'));
   }
 
