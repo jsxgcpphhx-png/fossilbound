@@ -69,3 +69,10 @@ npm run preview
 The Vite `base` is set to `/fossilbound/` in `vite.config.ts`, so built assets resolve correctly when deployed to GitHub Pages for this repository.
 
 The GitHub Actions workflow in `.github/workflows/deploy-pages.yml` builds the app and publishes the `dist/` directory to GitHub Pages whenever changes are pushed to `main`.
+
+## Tileset Notes
+
+- The overworld uses the uploaded tileset at `src/assets/tilesets/Overworld.png`.
+- Tileset inspection: the image is 1280×1152 px, arranged as a 40×36 grid of 32×32 px tiles.
+- Usable tiles include grass, dirt paths, cliffs, water, wood planks, stone, fences, houses, huts, tents, fountain/roost pieces, trees, flowers, reeds, rocks, crates, signs, roof pieces, market props, and castle props.
+- No separate license or attribution text was included with the uploaded tileset in this repository; add creator/license attribution here if those terms are provided later.

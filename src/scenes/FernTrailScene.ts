@@ -7,6 +7,7 @@ import { FollowerSprite } from '../systems/FollowerSprite';
 import { GridMover } from '../systems/GridMover';
 import { addFixedLocationLabel, configureOverworldCamera, fadeToScene, tileCenter } from '../systems/OverworldCamera';
 import { createOverworldCharacterTextures } from '../systems/PixelPlaceholderSprites';
+import { addPropTile, addTerrainTile, configureOverworldTileset, preloadOverworldTileset } from '../systems/OverworldTileset';
 import { DebugPanel } from '../ui/DebugPanel';
 import { DialogueBox } from '../ui/DialogueBox';
 import { PartyMenu } from '../ui/PartyMenu';
@@ -60,10 +61,14 @@ export class FernTrailScene extends Phaser.Scene {
 
   constructor() { super('FernTrailScene'); }
 
-  preload(): void { createOverworldCharacterTextures(this); }
+  preload(): void {
+    preloadOverworldTileset(this);
+    createOverworldCharacterTextures(this);
+  }
 
   create(): void {
     this.cameras.main.setBackgroundColor('#1d3122');
+    configureOverworldTileset(this);
     this.signTiles.clear();
     this.drawMap();
     this.addTrailSigns();
@@ -127,8 +132,7 @@ export class FernTrailScene extends Phaser.Scene {
       for (let x = 0; x < MAP_WIDTH; x += 1) {
         const tile = TERRAIN[y][x];
         const { x: centerX, y: centerY } = tileCenter({ x, y });
-        this.add.rectangle(centerX, centerY, TILE_SIZE, TILE_SIZE, this.getTileColor(tile));
-        this.add.rectangle(centerX, centerY + 12, TILE_SIZE, 8, 0x000000, 0.055);
+        addTerrainTile(this, tile, x, y);
         if (tile === 'p') this.drawPathTexture(centerX, centerY);
         if (tile === 'G') this.drawFernBed(centerX, centerY);
         if (tile === 'r') this.drawAmberBrush(centerX, centerY);
@@ -140,19 +144,6 @@ export class FernTrailScene extends Phaser.Scene {
     }
   }
 
-  private getTileColor(tile: string): number {
-    switch (tile) {
-      case 'B': return 0x243b2a;
-      case 'p': return 0xd6ad6a;
-      case 'G': return 0x5f8a3c;
-      case 'r': return 0x7f8f42;
-      case 'R': return 0x6c8f43;
-      case 'm': return 0x5f8a5e;
-      case 'w': return 0x4f8cad;
-      case 't': return 0x386641;
-      default: return 0x6f9a4b;
-    }
-  }
 
   private addTrailSigns(): void {
     this.registerSign({ x: 5, y: 11 }, 'Fern Trail', 'Fern Trail links Amberleaf Town to the wetter Mossbank boardwalk. Watch for brush movement in the tall ferns.');
@@ -166,9 +157,7 @@ export class FernTrailScene extends Phaser.Scene {
     this.add.ellipse(x + 9, y - 5, 9, 4, 0xf0c878, 0.18).setDepth(2);
   }
   private drawFernBed(x: number, y: number): void {
-    this.add.rectangle(x - 8, y + 5, 4, 18, 0x4f7a36).setRotation(-0.3).setDepth(4);
-    this.add.rectangle(x, y + 3, 5, 22, 0x6c8f43).setRotation(0.25).setDepth(4);
-    this.add.rectangle(x + 8, y + 5, 4, 17, 0xaebf7a).setRotation(0.4).setDepth(4);
+    addPropTile(this, 'flower', Math.floor(x / TILE_SIZE), Math.floor(y / TILE_SIZE), 4);
   }
   private drawAmberBrush(x: number, y: number): void {
     this.add.circle(x - 6, y + 3, 5, 0x8a6a3d).setDepth(4);
@@ -176,8 +165,7 @@ export class FernTrailScene extends Phaser.Scene {
     this.add.rectangle(x, y - 6, 22, 4, 0xaebf7a).setRotation(-0.2).setDepth(4);
   }
   private drawReeds(x: number, y: number): void {
-    this.add.rectangle(x - 7, y + 4, 3, 13, 0x6c8f43).setRotation(-0.24).setDepth(4);
-    this.add.rectangle(x + 7, y + 2, 3, 12, 0xaebf7a).setRotation(0.22).setDepth(4);
+    addPropTile(this, 'reeds', Math.floor(x / TILE_SIZE), Math.floor(y / TILE_SIZE), 4);
   }
   private drawMarshGrass(x: number, y: number): void {
     this.add.ellipse(x, y + 7, 22, 5, 0x355d3c, 0.2).setDepth(3);
@@ -188,19 +176,14 @@ export class FernTrailScene extends Phaser.Scene {
     this.add.ellipse(x + 2, y + 3, 18, 5, 0x8cc9d8, 0.35).setDepth(2);
   }
   private drawTree(x: number, y: number): void {
-    this.add.circle(x, y - 5, 13, 0x2f6f3e).setDepth(5);
-    this.add.circle(x + 6, y - 9, 9, 0x386641).setDepth(6);
-    this.add.rectangle(x, y + 9, 6, 12, 0x7a4f2b).setDepth(4);
+    this.add.ellipse(x, y + 13, 24, 7, 0x000000, 0.12).setDepth(2);
+    addPropTile(this, 'tree', Math.floor(x / TILE_SIZE), Math.floor(y / TILE_SIZE), 5);
   }
   private drawSign(tileX: number, tileY: number): void {
-    const { x, y } = tileCenter({ x: tileX, y: tileY });
-    this.add.rectangle(x, y + 7, 4, 12, 0x6f4b2f).setDepth(4);
-    this.add.rectangle(x, y, 22, 10, 0xb4874d).setDepth(5).setStrokeStyle(1, 0x593928);
+    addPropTile(this, 'sign', tileX, tileY, 5);
   }
   private drawRock(tileX: number, tileY: number): void {
-    const { x, y } = tileCenter({ x: tileX, y: tileY });
-    this.add.circle(x - 4, y + 5, 5, 0x6f6f5f).setDepth(4);
-    this.add.circle(x + 4, y + 4, 6, 0x8f8f78).setDepth(4);
+    addPropTile(this, 'rock', tileX, tileY, 4);
   }
 
   private registerControls(): void {

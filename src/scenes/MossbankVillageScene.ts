@@ -5,6 +5,7 @@ import { FollowerSprite } from '../systems/FollowerSprite';
 import { GridMover } from '../systems/GridMover';
 import { addFixedLocationLabel, configureOverworldCamera, fadeToScene, tileCenter } from '../systems/OverworldCamera';
 import { createOverworldCharacterTextures } from '../systems/PixelPlaceholderSprites';
+import { addPropTile, addTerrainTile, configureOverworldTileset, preloadOverworldTileset } from '../systems/OverworldTileset';
 import { DebugPanel } from '../ui/DebugPanel';
 import { DialogueBox } from '../ui/DialogueBox';
 import { PartyMenu } from '../ui/PartyMenu';
@@ -72,10 +73,14 @@ export class MossbankVillageScene extends Phaser.Scene {
   private signTiles = new Map<string, { title: string; text: string }>();
 
   constructor() { super('MossbankVillageScene'); }
-  preload(): void { createOverworldCharacterTextures(this); }
+  preload(): void {
+    preloadOverworldTileset(this);
+    createOverworldCharacterTextures(this);
+  }
 
   create(): void {
     this.cameras.main.setBackgroundColor('#203728');
+    configureOverworldTileset(this);
     this.npcTiles.clear();
     this.signTiles.clear();
     this.drawMap();
@@ -124,8 +129,7 @@ export class MossbankVillageScene extends Phaser.Scene {
       for (let x = 0; x < MAP_WIDTH; x += 1) {
         const tile = this.getTerrainAt({ x, y });
         const { x: centerX, y: centerY } = tileCenter({ x, y });
-        this.add.rectangle(centerX, centerY, TILE_SIZE, TILE_SIZE, this.getTileColor(tile));
-        this.add.rectangle(centerX, centerY + 12, TILE_SIZE, 8, 0x000000, 0.055);
+        addTerrainTile(this, tile, x, y);
         this.drawGroundTexture(x, y, centerX, centerY, tile);
         if (tile === 'm') this.drawMarshGrass(centerX, centerY);
         if (tile === 'p') this.drawBoardwalk(centerX, centerY);
@@ -141,22 +145,6 @@ export class MossbankVillageScene extends Phaser.Scene {
     }
   }
 
-  private getTileColor(tile: string): number {
-    switch (tile) {
-      case 'B': return 0x243b2a;
-      case 'p': return 0xa97943;
-      case 'm': return 0x5f8a5e;
-      case 'w': return 0x4f8cad;
-      case 'h': return 0xbf7d36;
-      case 's': return 0x8a6a3d;
-      case 'n': return 0xd6ad6a;
-      case 'q': return 0x7f8f42;
-      case 'r': case 'R': return 0x6c8f43;
-      case 't': return 0x386641;
-      case 'F': return 0x83ad51;
-      default: return 0x739f4f;
-    }
-  }
 
   private drawGroundTexture(tileX: number, tileY: number, x: number, y: number, tile: string): void {
     const seed = (tileX * 37 + tileY * 53) % 19;
@@ -196,10 +184,9 @@ export class MossbankVillageScene extends Phaser.Scene {
   }
 
   private drawBoardwalk(x: number, y: number): void {
-    this.add.rectangle(x, y - 5, 30, 3, 0xb4874d, 0.65).setDepth(3);
-    this.add.rectangle(x, y + 4, 30, 3, 0x8a6a3d, 0.55).setDepth(3);
+    addPropTile(this, 'fence', Math.floor(x / TILE_SIZE), Math.floor(y / TILE_SIZE), 3);
   }
-  private drawMarshGrass(x: number, y: number): void { this.add.ellipse(x, y + 7, 22, 5, 0x355d3c, 0.2).setDepth(3); this.drawReeds(x, y); }
+  private drawMarshGrass(x: number, y: number): void { this.add.ellipse(x, y + 7, 22, 5, 0x355d3c, 0.12).setDepth(3); this.drawReeds(x, y); }
   private drawHut(x: number, y: number, wallColor: number, roofColor: number): void {
     this.add.ellipse(x, y + 16, 34, 8, 0x000000, 0.16).setDepth(3);
     this.add.rectangle(x, y - 3, 28, 21, wallColor).setDepth(4);
@@ -223,24 +210,21 @@ export class MossbankVillageScene extends Phaser.Scene {
     this.add.line(x, y - 5, -12, 0, 12, 0, 0xd6ad6a).setDepth(6);
   }
   private drawReeds(x: number, y: number): void {
-    this.add.rectangle(x - 8, y + 5, 4, 18, 0x4f7a36).setRotation(-0.35).setDepth(4);
-    this.add.rectangle(x, y + 3, 5, 22, 0x6c8f43).setRotation(0.25).setDepth(4);
-    this.add.rectangle(x + 8, y + 5, 4, 17, 0xaebf7a).setRotation(0.4).setDepth(4);
+    addPropTile(this, 'reeds', Math.floor(x / TILE_SIZE), Math.floor(y / TILE_SIZE), 4);
   }
   private drawTree(x: number, y: number): void {
-    this.add.circle(x, y - 6, 12, 0x2f6f3e).setDepth(5);
-    this.add.circle(x + 6, y - 9, 8, 0x386641).setDepth(6);
-    this.add.rectangle(x, y + 9, 6, 12, 0x7a4f2b).setDepth(4);
+    this.add.ellipse(x, y + 13, 24, 7, 0x000000, 0.12).setDepth(2);
+    addPropTile(this, 'tree', Math.floor(x / TILE_SIZE), Math.floor(y / TILE_SIZE), 5);
   }
   private drawWater(x: number, y: number): void {
     this.add.rectangle(x, y - 12, TILE_SIZE, 3, 0x9dd7c6, 0.25).setDepth(2);
     this.add.ellipse(x + 3, y + 2, 18, 5, 0x8cc9d8, 0.35).setDepth(2);
   }
-  private drawFlowerPatch(x: number, y: number): void { [0xf0c878, 0xd99c3b, 0xf8f3df].forEach((color, index) => this.add.circle(x - 6 + index * 6, y + 6 - index, 2, color).setDepth(4)); }
-  private drawCrate(tileX: number, tileY: number): void { const { x, y } = tileCenter({ x: tileX, y: tileY }); this.add.rectangle(x, y + 5, 16, 14, 0x8a6a3d).setDepth(4).setStrokeStyle(2, 0x593928); this.add.line(x, y + 5, -7, -5, 7, 5, 0xd99c3b).setDepth(5); }
-  private drawRock(tileX: number, tileY: number): void { const { x, y } = tileCenter({ x: tileX, y: tileY }); this.add.circle(x - 4, y + 5, 5, 0x6f6f5f).setDepth(4); this.add.circle(x + 4, y + 4, 6, 0x8f8f78).setDepth(4); }
+  private drawFlowerPatch(x: number, y: number): void { addPropTile(this, 'flower', Math.floor(x / TILE_SIZE), Math.floor(y / TILE_SIZE), 4); }
+  private drawCrate(tileX: number, tileY: number): void { addPropTile(this, 'crate', tileX, tileY, 4); }
+  private drawRock(tileX: number, tileY: number): void { addPropTile(this, 'rock', tileX, tileY, 4); }
   private drawFlower(tileX: number, tileY: number): void { const { x, y } = tileCenter({ x: tileX, y: tileY }); this.drawFlowerPatch(x, y); }
-  private drawSign(tileX: number, tileY: number): void { const { x, y } = tileCenter({ x: tileX, y: tileY }); this.add.rectangle(x, y + 7, 4, 12, 0x6f4b2f).setDepth(4); this.add.rectangle(x, y, 22, 10, 0xb4874d).setDepth(5).setStrokeStyle(1, 0x593928); }
+  private drawSign(tileX: number, tileY: number): void { addPropTile(this, 'sign', tileX, tileY, 5); }
 
   private registerControls(): void {
     const keyboard = this.input.keyboard; if (!keyboard) return;

@@ -10,6 +10,7 @@ import {
   tileCenter
 } from '../systems/OverworldCamera';
 import { createOverworldCharacterTextures } from '../systems/PixelPlaceholderSprites';
+import { addPropTile, addTerrainTile, addTilesetRegion, configureOverworldTileset, preloadOverworldTileset } from '../systems/OverworldTileset';
 import { DebugPanel } from '../ui/DebugPanel';
 import { DialogueBox } from '../ui/DialogueBox';
 import { PartyMenu } from '../ui/PartyMenu';
@@ -69,11 +70,13 @@ export class AmberleafTownScene extends Phaser.Scene {
   }
 
   preload(): void {
+    preloadOverworldTileset(this);
     createOverworldCharacterTextures(this);
   }
 
   create(): void {
     this.cameras.main.setBackgroundColor('#223324');
+    configureOverworldTileset(this);
     this.npcTiles.clear();
     this.signTiles.clear();
     this.drawMap();
@@ -139,8 +142,7 @@ export class AmberleafTownScene extends Phaser.Scene {
       for (let x = 0; x < MAP_WIDTH; x += 1) {
         const tile = TERRAIN[y][x];
         const { x: centerX, y: centerY } = tileCenter({ x, y });
-        this.add.rectangle(centerX, centerY, TILE_SIZE, TILE_SIZE, this.getTileColor(tile));
-        this.add.rectangle(centerX, centerY + 12, TILE_SIZE, 8, 0x000000, 0.055);
+        addTerrainTile(this, tile, x, y);
 
         if (tile === 'p' || tile === 'd') this.drawPathTexture(centerX, centerY, tile === 'd');
         if (tile === 'h') this.drawHouse(centerX, centerY);
@@ -165,43 +167,34 @@ export class AmberleafTownScene extends Phaser.Scene {
   }
 
   private drawPathTexture(x: number, y: number, darker = false): void {
-    this.add.ellipse(x - 8, y + 3, 10, 5, darker ? 0x9b6d3f : 0xc18c52, 0.28);
-    this.add.ellipse(x + 9, y - 5, 9, 4, 0xf0c878, 0.18);
+    this.add.ellipse(x - 8, y + 3, 10, 5, darker ? 0x9b6d3f : 0xc18c52, 0.18).setDepth(1);
+    this.add.ellipse(x + 9, y - 5, 9, 4, 0xf0c878, 0.1).setDepth(1);
   }
 
   private drawHouse(x: number, y: number): void {
-    this.add.rectangle(x, y - 3, 27, 20, 0x9a5f2d).setDepth(2);
-    this.add.rectangle(x, y - 14, 31, 9, 0x6f4b2f).setDepth(3);
-    this.add.rectangle(x, y + 9, 10, 11, 0x593928).setDepth(3);
-    this.add.rectangle(x + 8, y, 5, 5, 0xf0c878).setDepth(3);
     this.add.ellipse(x, y + 15, 30, 7, 0x000000, 0.14).setDepth(1);
+    addPropTile(this, 'house', Math.floor(x / TILE_SIZE), Math.floor(y / TILE_SIZE), 4);
   }
 
   private drawLab(x: number, y: number): void {
-    this.add.rectangle(x, y - 10, 31, 22, 0x8a6a3d).setDepth(4);
-    this.add.rectangle(x, y - 22, 36, 11, 0x3f543c).setDepth(5);
-    this.add.rectangle(x, y + 4, 12, 17, 0x2d1f16).setDepth(5);
-    this.add.circle(x + 4, y + 4, 1.5, 0xd99c3b).setDepth(6);
+    addTilesetRegion(this, 736, 576, 96, 96, x, y - 16, 64, 64, 5);
   }
 
   private drawTree(x: number, y: number): void {
-    this.add.circle(x, y - 6, 13, 0x2f6f3e).setDepth(4);
-    this.add.circle(x + 7, y - 10, 9, 0x386641).setDepth(5);
-    this.add.rectangle(x, y + 10, 6, 13, 0x7a4f2b).setDepth(3);
+    this.add.ellipse(x, y + 13, 24, 7, 0x000000, 0.12).setDepth(2);
+    addPropTile(this, 'tree', Math.floor(x / TILE_SIZE), Math.floor(y / TILE_SIZE), 5);
   }
 
   private drawFence(x: number, y: number): void {
-    this.add.rectangle(x, y + 1, 28, 8, 0x8a6a3d).setDepth(4);
-    this.add.rectangle(x, y - 5, 28, 3, 0xb4874d).setDepth(5);
+    addPropTile(this, 'fence', Math.floor(x / TILE_SIZE), Math.floor(y / TILE_SIZE), 4);
   }
 
   private drawFlowerPatch(x: number, y: number): void {
-    [0xf0c878, 0xd99c3b, 0xf8f3df].forEach((color, index) => this.add.circle(x - 6 + index * 6, y + 6 - index, 2, color).setDepth(4));
+    addPropTile(this, 'flower', Math.floor(x / TILE_SIZE), Math.floor(y / TILE_SIZE), 4);
   }
 
   private drawReeds(x: number, y: number): void {
-    this.add.rectangle(x - 7, y + 4, 3, 13, 0x6c8f43).setRotation(-0.24).setDepth(4);
-    this.add.rectangle(x + 7, y + 2, 3, 12, 0xaebf7a).setRotation(0.22).setDepth(4);
+    addPropTile(this, 'reeds', Math.floor(x / TILE_SIZE), Math.floor(y / TILE_SIZE), 4);
   }
 
   private drawWaterEdge(x: number, y: number): void {
@@ -210,36 +203,17 @@ export class AmberleafTownScene extends Phaser.Scene {
   }
 
   private drawSign(tileX: number, tileY: number): void {
-    const { x, y } = tileCenter({ x: tileX, y: tileY });
-    this.add.rectangle(x, y + 7, 4, 12, 0x6f4b2f).setDepth(4);
-    this.add.rectangle(x, y, 22, 10, 0xb4874d).setDepth(5).setStrokeStyle(1, 0x593928);
+    addPropTile(this, 'sign', tileX, tileY, 5);
   }
 
   private drawRock(tileX: number, tileY: number): void {
-    const { x, y } = tileCenter({ x: tileX, y: tileY });
-    this.add.circle(x - 4, y + 5, 5, 0x6f6f5f).setDepth(4);
-    this.add.circle(x + 4, y + 4, 6, 0x8f8f78).setDepth(4);
+    addPropTile(this, 'rock', tileX, tileY, 4);
   }
 
   private drawCrate(tileX: number, tileY: number): void {
-    const { x, y } = tileCenter({ x: tileX, y: tileY });
-    this.add.rectangle(x, y + 5, 16, 14, 0x8a6a3d).setDepth(4).setStrokeStyle(2, 0x593928);
+    addPropTile(this, 'crate', tileX, tileY, 4);
   }
 
-  private getTileColor(tile: string): number {
-    switch (tile) {
-      case 'B': return 0x243b2a;
-      case 'p': return 0xd6ad6a;
-      case 'd': return 0xbf8450;
-      case 'h': return 0xbf7d36;
-      case 'w': return 0x4f8cad;
-      case 'f': return 0x8a6a3d;
-      case 't': return 0x386641;
-      case 'F': return 0x83ad51;
-      case 'R': return 0x6c8f43;
-      default: return 0x739f4f;
-    }
-  }
 
   private registerControls(): void {
     const keyboard = this.input.keyboard;
