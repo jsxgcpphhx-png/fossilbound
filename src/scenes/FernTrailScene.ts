@@ -14,31 +14,31 @@ import type { Direction, TilePosition } from '../types/grid';
 
 const START_TILE: TilePosition = { x: 1, y: 12 };
 const TOWN_EXIT_TILE: TilePosition = { x: 0, y: 12 };
-const AMBERLEAF_RETURN_TILE: TilePosition = { x: 28, y: 12 };
-const MOSSBANK_EXIT_TILE: TilePosition = { x: 33, y: 12 };
-const MOSSBANK_ENTRY_TILE: TilePosition = { x: 1, y: 11 };
+const AMBERLEAF_RETURN_TILE: TilePosition = { x: 36, y: 12 };
+const MOSSBANK_EXIT_TILE: TilePosition = { x: 39, y: 12 };
+const MOSSBANK_ENTRY_TILE: TilePosition = { x: 1, y: 12 };
 
 const TERRAIN = [
-  'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB',
-  'BtttggggggggggggttttggggggmmmmmBBB',
-  'BttggGGGGggggggggttttgggggmmwwwBBB',
-  'BtgggGGGGgtttggggggggggggmmwwwwBBB',
-  'BgggggggggtttggGGGGGGgggggmmmmmBBB',
-  'BgggggpppppppppGGGGGGggggggmmmBBBB',
-  'BggggpggggggggpppppgggRRRgggggBBBB',
-  'BttggpggGGGGggggggpgggRRRggwwwBBBB',
-  'BttggpggGGGGggggggpgggggggwwwwBBBB',
-  'BggggpgggggggttgggpggggmmmmwwwBBBB',
-  'BgggpppppppggttgggpppppmmmmmmmBBBB',
-  'BgggpgggggppppppppppggppppppppBBBB',
-  'pggppggGGggggggGGgggggmmmmmmmmpBpp',
-  'BggpggGGGGgggrrGGGGggggmmwwwmmBBBB',
-  'BggpgggggggggrrrrggggggmmwwwmmBBBB',
-  'BggpppppggggggggggggppppmmmmmBBBBB',
-  'BggggggpggtttggggggpgggggRRRggBBBB',
-  'BttgggggggtttggggggggggggRRRgtBBBB',
-  'BttttgggggggggggggggggggggggttBBBB',
-  'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB',
+  'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB',
+  'BtttggggggggggggttttggggggmmmmmBBBBBBBBB',
+  'BttggGGGGggggggggttttgggggmmwwwBBBwwwBBB',
+  'BtgggGGGGgtttggggggggggggmmwwwwBBBwwwBBB',
+  'BgggggggggtttggGGGGGGgggggmmmmmBBBmmmBBB',
+  'BgggggpppppppppGGGGGGggggggmmmBBBBmmmBBB',
+  'BggggpggggggggpppppgggRRRgggggBBBBgggBBB',
+  'BttggpggGGGGggggggpgggRRRggwwwBBBBwwwBBB',
+  'BttggpggGGGGggggggpgggggggwwwwBBBBwwwBBB',
+  'BggggpgggggggttgggpggggmmmmwwwBBBBwwwBBB',
+  'BgggpppppppggttgggpppppmmmmmmmBBBBmmmBBB',
+  'BgggpgggggppppppppppggppppppppBBBBpppppp',
+  'pggppggGGggggggGGgggggmmmmmmmmpppppppppp',
+  'BggpggGGGGgggrrGGGGggggmmwwwmmBBBBwwwBBB',
+  'BggpgggggggggrrrrggggggmmwwwmmBBBBmmmBBB',
+  'BggpppppggggggggggggppppmmmmmBBBBBmmmBBB',
+  'BggggggpggtttggggggpgggggRRRggBBBBRRgBBB',
+  'BttgggggggtttggggggggggggRRRgtBBBBRRtBBB',
+  'BttttgggggggggggggggggggggggttBBBBtttBBB',
+  'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB',
 ] as const;
 
 const MAP_WIDTH = TERRAIN[0].length;
@@ -77,7 +77,8 @@ export class FernTrailScene extends Phaser.Scene {
       canEnterTile: (tile) => this.canEnterTile(tile),
       onMoveComplete: (tile) => this.handleMoveComplete(tile)
     });
-    configureOverworldCamera(this, { mapWidth: MAP_WIDTH, mapHeight: MAP_HEIGHT, target: this.player.gameObject, zoom: 1.16 });
+    this.follower = FollowerSprite.shouldCreate() ? new FollowerSprite(this, savedStartTile) : undefined;
+    configureOverworldCamera(this, { mapWidth: MAP_WIDTH, mapHeight: MAP_HEIGHT, target: this.player.gameObject, zoom: 1.32 });
 
     this.encounterZones = new EncounterZoneSystem({
       random: { frac: () => Math.random(), between: (min, max) => Math.floor(Math.random() * (max - min + 1)) + min },
@@ -90,7 +91,6 @@ export class FernTrailScene extends Phaser.Scene {
         this.cameras.main.fadeOut(180, 23, 37, 29);
       }
     });
-    this.follower = FollowerSprite.shouldCreate() ? new FollowerSprite(this, savedStartTile) : undefined;
     this.debugPanel = new DebugPanel(this);
     this.dialogueBox = new DialogueBox(this);
     this.partyMenu = new PartyMenu(this, {
@@ -156,7 +156,7 @@ export class FernTrailScene extends Phaser.Scene {
 
   private addTrailSigns(): void {
     this.registerSign({ x: 5, y: 11 }, 'Fern Trail', 'Fern Trail links Amberleaf Town to the wetter Mossbank boardwalk. Watch for brush movement in the tall ferns.');
-    this.registerSign({ x: 29, y: 13 }, 'Mossbank Wetlands', 'Mossbank Village is east. Follow the planks where the ground turns soft and waterlogged.');
+    this.registerSign({ x: 34, y: 13 }, 'Mossbank Wetlands', 'Mossbank Village is east. Follow the planks where the ground turns soft and waterlogged.');
     [{ x: 14, y: 12 }, { x: 24, y: 11 }].forEach(({ x, y }) => this.drawSign(x, y));
     [{ x: 7, y: 9 }, { x: 17, y: 15 }, { x: 26, y: 8 }, { x: 30, y: 15 }].forEach(({ x, y }) => this.drawRock(x, y));
   }

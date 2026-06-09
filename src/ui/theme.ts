@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { registerFixedUiObject } from '../systems/OverworldCamera';
 
 export const UI_COLORS = {
   ink: '#17251d',
@@ -44,10 +45,10 @@ export function panelTextStyle(options: Phaser.Types.GameObjects.Text.TextStyle 
 }
 
 export function drawUiPanel(scene: Phaser.Scene, options: PanelOptions): Phaser.GameObjects.Rectangle {
-  return scene.add.rectangle(options.x, options.y, options.width, options.height, options.fill ?? UI_HEX.parchment, options.alpha ?? 0.98)
+  return registerFixedUiObject(scene, scene.add.rectangle(options.x, options.y, options.width, options.height, options.fill ?? UI_HEX.parchment, options.alpha ?? 0.98)
     .setStrokeStyle(4, options.stroke ?? UI_HEX.leaf)
     .setDepth(options.depth ?? 0)
-    .setScrollFactor(0);
+    .setScrollFactor(0));
 }
 
 export function paginateText(message: string, maxCharactersPerLine: number, maxLinesPerPage: number): string[] {

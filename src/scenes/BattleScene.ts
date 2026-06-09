@@ -65,6 +65,9 @@ interface TranquilizerPhaseState {
   targetBaseRadius: number;
   currentTargetRadius: number;
   obstacles: TranquilizerObstacle[];
+  previewEndsAt: number;
+  gameplayStarted: boolean;
+  goMessageUntil: number;
   failedReason?: string;
   succeeded: boolean;
 }
@@ -721,7 +724,7 @@ export class BattleScene extends Phaser.Scene {
       fontSize: '10px',
       wordWrap: { width: panel.width, useAdvancedWrap: true }
     })));
-    this.panelObjects.push(this.add.text(panel.x, panel.bottom + 10, 'Arrows/WASD move cursor · hold inside target · touching obstacles fails immediately.', panelTextStyle({
+    this.panelObjects.push(this.add.text(panel.x, panel.bottom + 10, 'Preview locks controls for 1 second · then Arrows/WASD move cursor · avoid obstacles.', panelTextStyle({
       color: UI_COLORS.amberLight,
       fontSize: '10px',
       wordWrap: { width: panel.width + 8, useAdvancedWrap: true }
@@ -739,8 +742,8 @@ export class BattleScene extends Phaser.Scene {
     const roundText = this.add.text(panel.x + 10, panel.top + 32, `Round 1/${profile.requiredRounds}`, panelTextStyle({ color: UI_COLORS.parchment, fontSize: '11px', fontStyle: 'bold' }));
     const progressText = this.add.text(panel.x + 108, panel.top + 32, 'Lock-on 0%', panelTextStyle({ color: UI_COLORS.parchment, fontSize: '11px' }));
     const timerText = this.add.text(panel.right - 86, panel.top + 32, '0.0s', panelTextStyle({ color: UI_COLORS.parchment, fontSize: '11px' }));
-    const statusText = this.add.text(panel.x + 10, panel.bottom - 24, 'Acquire the moving target.', panelTextStyle({ color: UI_COLORS.amberLight, fontSize: '10px', wordWrap: { width: panel.width - 20, useAdvancedWrap: true } }));
-    const warningText = this.add.text(panel.right - 126, panel.bottom - 44, '', panelTextStyle({ color: '#ffcf70', fontSize: '10px', fontStyle: 'bold' }));
+    const statusText = this.add.text(panel.x + 10, panel.bottom - 24, 'Ready… study the layout. Cursor unlocks in 1 second.', panelTextStyle({ color: UI_COLORS.amberLight, fontSize: '10px', wordWrap: { width: panel.width - 20, useAdvancedWrap: true } }));
+    const warningText = this.add.text(panel.right - 126, panel.bottom - 44, 'READY', panelTextStyle({ color: '#ffcf70', fontSize: '10px', fontStyle: 'bold' }));
     const obstacles = this.createTranquilizerObstacles(panel, profile);
     this.panelObjects.push(target, cursor, progressBack, progressBar, roundText, progressText, timerText, statusText, warningText, ...obstacles.map((obstacle) => obstacle.shape));
 
@@ -751,8 +754,8 @@ export class BattleScene extends Phaser.Scene {
       profile,
       creatureName,
       roundIndex: 0,
-      roundStartedAt: this.time.now,
-      sequenceStartedAt: this.time.now,
+      roundStartedAt: this.time.now + 1000,
+      sequenceStartedAt: this.time.now + 1000,
       lockedOnMs: 0,
       targetVelocityX: profile.targetSpeed,
       targetVelocityY: profile.targetSpeed * 0.58,
@@ -767,11 +770,14 @@ export class BattleScene extends Phaser.Scene {
       targetBaseRadius: profile.targetRadius,
       currentTargetRadius: profile.targetRadius,
       obstacles,
+      previewEndsAt: this.time.now + 1000,
+      gameplayStarted: false,
+      goMessageUntil: this.time.now + 1650,
       succeeded: false
     };
     this.queueMessages([
-      'Capture mode started: this 3-round tranquilizer lock-on is separate from the experimental action bullet-hell.',
-      'Hold the cursor inside the moving target to fill each round. Touch any obstacle and the attempt fails.'
+      'Capture preview started: study the target and obstacles before controls unlock.',
+      'After Ready becomes Go, hold the cursor inside the target to fill each round. Touch any obstacle and the attempt fails.'
     ]);
   }
 
@@ -780,6 +786,24 @@ export class BattleScene extends Phaser.Scene {
 
     if (!phase) {
       return;
+    }
+
+    if (time < phase.previewEndsAt) {
+      const previewRemainingMs = Math.max(0, phase.previewEndsAt - time);
+      phase.timerText.setText(`${(phase.profile.roundTimeLimitMs / 1000).toFixed(1)}s`);
+      phase.roundText.setText(`Round ${phase.roundIndex + 1}/${phase.profile.requiredRounds}`);
+      phase.progressText.setText('Lock-on 0%');
+      phase.statusText.setText(`Ready… ${Math.ceil(previewRemainingMs / 1000)}s preview. Cursor locked.`);
+      phase.warningText.setText('READY');
+      return;
+    }
+
+    if (!phase.gameplayStarted) {
+      phase.gameplayStarted = true;
+      phase.roundStartedAt = time;
+      phase.sequenceStartedAt = time;
+      phase.statusText.setText('Go! Cursor unlocked — acquire the target.');
+      phase.warningText.setText('GO!');
     }
 
     this.moveTranqCursor(phase, delta);
@@ -804,10 +828,10 @@ export class BattleScene extends Phaser.Scene {
     const totalRemainingMs = Math.max(0, phase.profile.totalTimeLimitMs - (time - phase.sequenceStartedAt));
     phase.timerText.setText(`${(Math.min(roundRemainingMs, totalRemainingMs) / 1000).toFixed(1)}s`);
     phase.roundText.setText(`Round ${phase.roundIndex + 1}/${phase.profile.requiredRounds}`);
-    phase.statusText.setText(lockedOn ? 'Locked on — hold steady!' : 'Acquire the moving target.');
+    phase.statusText.setText(time < phase.goMessageUntil ? 'Go! Cursor unlocked — acquire the target.' : lockedOn ? 'Locked on — hold steady!' : 'Acquire the moving target.');
     (phase.target as unknown as { setFillStyle?: (color: number, alpha?: number) => void }).setFillStyle?.(lockedOn ? UI_HEX.amberLight : UI_HEX.amber, lockedOn ? 0.42 : 0.24);
     phase.target.setStrokeStyle(lockedOn ? 4 : 3, lockedOn ? 0xf8f3df : 0xf0c878, lockedOn ? 1 : 0.92);
-    phase.warningText.setText(this.isNearTranquilizerObstacle(phase) ? 'OBSTACLE NEAR' : '');
+    phase.warningText.setText(time < phase.goMessageUntil ? 'GO!' : this.isNearTranquilizerObstacle(phase) ? 'OBSTACLE NEAR' : '');
 
     if (phase.lockedOnMs >= phase.profile.requiredLockOnMs) {
       this.advanceTranquilizerRound(phase);
@@ -884,7 +908,7 @@ export class BattleScene extends Phaser.Scene {
       Phaser.Math.Clamp(phase.panel.centerX + (phase.roundIndex === 1 ? -70 : 76), phase.panel.left + phase.currentTargetRadius, phase.panel.right - phase.currentTargetRadius),
       Phaser.Math.Clamp(phase.panel.centerY + (phase.roundIndex === 1 ? 44 : -36), phase.panel.top + phase.currentTargetRadius + 52, phase.panel.bottom - phase.currentTargetRadius - 8)
     );
-    phase.statusText.setText(`Round ${phase.roundIndex} secured. Acquire the next target.`);
+    phase.statusText.setText(`Round ${phase.roundIndex} secured. Go! Acquire the next target.`);
   }
 
   private createTranquilizerObstacles(panel: Phaser.Geom.Rectangle, profile: TranquilizerDifficultyProfile): TranquilizerObstacle[] {

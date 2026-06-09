@@ -12,32 +12,32 @@ import type { Direction, TilePosition } from '../types/grid';
 
 const START_TILE: TilePosition = { x: 1, y: 12 };
 const FERN_TRAIL_EXIT_TILE: TilePosition = { x: 0, y: 12 };
-const FERN_TRAIL_RETURN_TILE: TilePosition = { x: 32, y: 12 };
+const FERN_TRAIL_RETURN_TILE: TilePosition = { x: 38, y: 12 };
 
 const TERRAIN = [
-  'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB',
-  'BmmmmmggggggggttggggggmmmmmmmBBB',
-  'BmmwwwmggghhhggggggqqqgmmwwwBBB',
-  'BmmwwwmggghhhggggggqqqgmmwwwBBB',
-  'BmmmmpmmmmppppppppppgggmmmmBBBB',
-  'BggggppppppggggggpppggggRRRBBBB',
-  'BggghhhggpggsssngpggggggRRRBBBB',
-  'BggghhhppppgsssngppppggggggBBBB',
-  'BgggggggppgggggggggpggtttggBBB',
-  'BggnnnggppggttgmmmmppggtttggBBB',
-  'BggnnnppppggttgmmmmpppppppppBBB',
-  'BggggppggmmmmmmmmmmmgggppggpBBB',
-  'pppppppggmwwwwmgggRRgggppggpBBB',
-  'BgrrgggggmwwwwmgggRRggggggggBBB',
-  'BgggRRgggmmmmmmgggggggggFgggBBB',
-  'BgggRRggggggppppppgggmmmmgggBBB',
-  'BgggggggggggppppppgggmwwwmggBBB',
-  'BttgggggggggggggggggmmmmmgtBBB',
-  'BttttgggggggggggggggggggtttBBBB',
-  'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB',
+  'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB',
+  'BmmmmmggggggggttggggggmmmmmmmBBBBBmmmBBB',
+  'BmmwwwmggghhhggggggqqqgmmwwwBBBBBBwwwBBB',
+  'BmmwwwmggghhhggggggqqqgmmwwwBBBBBBwwwBBB',
+  'BmmmmpmmmmppppppppppgggmmmmBBBBBBBmmmBBB',
+  'BggggppppppggggggpppggggRRRBBBBBBBRRRBBB',
+  'BggghhhggpggsssngpggggggRRRBBBBBBBRRRBBB',
+  'BggghhhppppgsssngppppggggggBBBBBBBgggBBB',
+  'BgggggggppgggggggggpggtttggBBBBBBBtttBBB',
+  'BggnnnggppggttgmmmmppggtttggBBBBBBtttBBB',
+  'BggnnnppppggttgmmmmpppppppppBBBBBBpppppp',
+  'BggggppggmmmmmmmmmmmgggppggpBBBBBBgggppp',
+  'pppppppggmwwwwmgggRRgggppggpBBBBBBpppppp',
+  'BgrrgggggmwwwwmgggRRggggggggBBBBBBgggBBB',
+  'BgggRRgggmmmmmmgggggggggFgggBBBBBBgggBBB',
+  'BgggRRggggggppppppgggmmmmgggBBBBBBmmmmBB',
+  'BgggggggggggppppppgggmwwwmggBBBBBBwwwmBB',
+  'BttgggggggggggggggggmmmmmgtBBBBBBBmmmgtB',
+  'BttttgggggggggggggggggggtttBBBBBBBtttBBB',
+  'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB',
 ] as const;
 
-const MAP_WIDTH = Math.max(...TERRAIN.map((row) => row.length));
+const MAP_WIDTH = TERRAIN[0].length;
 const MAP_HEIGHT = TERRAIN.length;
 
 const NPCS = [
@@ -85,9 +85,9 @@ export class MossbankVillageScene extends Phaser.Scene {
     const savedStartTile = this.getValidStartTile(savedState.currentMap === 'MossbankVillageScene' ? savedState.currentPosition : START_TILE);
     const playerSprite = this.add.sprite(0, 0, 'player').setDepth(10);
     this.player = new GridMover({ sprite: playerSprite, startTile: savedStartTile, canEnterTile: (tile) => this.canEnterTile(tile), onMoveComplete: (tile) => this.handleMoveComplete(tile) });
-    configureOverworldCamera(this, { mapWidth: MAP_WIDTH, mapHeight: MAP_HEIGHT, target: this.player.gameObject, zoom: 1.16 });
-
     this.follower = FollowerSprite.shouldCreate() ? new FollowerSprite(this, savedStartTile) : undefined;
+    configureOverworldCamera(this, { mapWidth: MAP_WIDTH, mapHeight: MAP_HEIGHT, target: this.player.gameObject, zoom: 1.32 });
+
     this.debugPanel = new DebugPanel(this);
     this.dialogueBox = new DialogueBox(this);
     this.partyMenu = new PartyMenu(this, {

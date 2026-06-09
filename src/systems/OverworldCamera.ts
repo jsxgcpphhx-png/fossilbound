@@ -14,15 +14,14 @@ export function configureOverworldCamera(scene: Phaser.Scene, options: Overworld
   const camera = scene.cameras.main;
   const worldWidth = options.mapWidth * TILE_SIZE;
   const worldHeight = options.mapHeight * TILE_SIZE;
-  // Keep the primary camera close to 1:1 so fixed-position UI text is not
-  // magnified or clipped by overworld zoom. Visual intimacy comes from tile
-  // scale and props instead of zooming the whole render pass.
-  const zoom = Math.min(options.zoom ?? 1, 1);
-  const lerp = options.lerp ?? 0.14;
+  const zoom = options.zoom ?? 1.32;
+  const lerp = options.lerp ?? 0.1;
 
   camera.setBounds(0, 0, worldWidth, worldHeight);
   camera.setZoom(zoom);
-  camera.startFollow(options.target, false, lerp, lerp);
+  camera.setRoundPixels(true);
+  camera.startFollow(options.target, true, lerp, lerp);
+  configureFixedUiCamera(scene);
   camera.fadeIn(260, 23, 37, 29);
 }
 
@@ -47,14 +46,14 @@ export function tileCenter(tile: TilePosition): { x: number; y: number } {
 }
 
 export function addFixedLocationLabel(scene: Phaser.Scene, text: string): void {
-  const label = scene.add.text(GAME_WIDTH / 2, 46, text, {
+  const label = registerFixedUiObject(scene, scene.add.text(GAME_WIDTH / 2, 46, text, {
     backgroundColor: 'rgba(248, 243, 223, 0.92)',
     color: '#2d4632',
     fontFamily: 'monospace',
     fontSize: '20px',
     fontStyle: 'bold',
     padding: { x: 16, y: 8 }
-  }).setOrigin(0.5).setDepth(100).setScrollFactor(0);
+  }).setOrigin(0.5).setDepth(100).setScrollFactor(0));
 
   scene.tweens.add({
     targets: label,
@@ -67,4 +66,31 @@ export function addFixedLocationLabel(scene: Phaser.Scene, text: string): void {
 
 export function readableUiBottomY(): number {
   return GAME_HEIGHT - 90;
+}
+
+
+export function configureFixedUiCamera(scene: Phaser.Scene): Phaser.Cameras.Scene2D.Camera {
+  const sceneWithUiCamera = scene as Phaser.Scene & { fixedUiCamera?: Phaser.Cameras.Scene2D.Camera };
+
+  if (sceneWithUiCamera.fixedUiCamera) {
+    return sceneWithUiCamera.fixedUiCamera;
+  }
+
+  const worldObjects = [...scene.children.list];
+  const uiCamera = scene.cameras.add(0, 0, GAME_WIDTH, GAME_HEIGHT, false, `${scene.scene.key}-fixed-ui`);
+  uiCamera.setZoom(1);
+  uiCamera.setScroll(0, 0);
+  uiCamera.ignore(worldObjects);
+  sceneWithUiCamera.fixedUiCamera = uiCamera;
+  return uiCamera;
+}
+
+export function registerFixedUiObject<T extends Phaser.GameObjects.GameObject>(scene: Phaser.Scene, gameObject: T): T {
+  const uiCamera = (scene as Phaser.Scene & { fixedUiCamera?: Phaser.Cameras.Scene2D.Camera }).fixedUiCamera;
+
+  if (uiCamera) {
+    scene.cameras.main.ignore(gameObject);
+  }
+
+  return gameObject;
 }

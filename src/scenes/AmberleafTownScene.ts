@@ -18,33 +18,33 @@ import type { Direction, TilePosition } from '../types/grid';
 const START_TILE: TilePosition = { x: 13, y: 12 };
 const LAB_DOOR_TILE: TilePosition = { x: 10, y: 7 };
 const LAB_ENTRY_TILE: TilePosition = { x: 9, y: 12 };
-const FERN_TRAIL_EXIT_TILE: TilePosition = { x: 29, y: 12 };
+const FERN_TRAIL_EXIT_TILE: TilePosition = { x: 37, y: 12 };
 const FERN_TRAIL_ENTRY_TILE: TilePosition = { x: 1, y: 12 };
 const DR_SABLE_TILE: TilePosition = { x: 13, y: 8 };
 const DR_SABLE_DIALOGUE =
   'Amberleaf opens into Fern Trail now instead of ending at a hard screen edge. The fences, path, and tree line should guide your eye east.';
 
 const TERRAIN = [
-  'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB',
-  'BttttgggggggggggggggggttttttBB',
-  'BtggggggggffffggggggggggggttBB',
-  'BtggggpppppppppppggggwwggggtBB',
-  'BgggpphhhhpppphhhppgggwwggggBB',
-  'BgggpphhhhpppphhhppgggwwggggBB',
-  'BgggpphhhhpppppppppggwwgggggBB',
-  'BgggppppppdpppppggggggggggggBB',
-  'BggffffgggdgggffffggggggggggBB',
-  'BgggFgggggdgggggggggtttgggggBB',
-  'BgggggggppdppppgggggtttgggggBB',
-  'Bgggppppppdppppppppppppppppppp',
-  'BgggppggggdgggggggggggggggFppp',
-  'BgggppggttdttgggFgggggfffffppp',
-  'BgggggggttdttggggggggggggggBBB',
-  'BgggggggggdgggwwwwwgggRggggBBB',
-  'BgggFgggggggggwwwwwggRRRgggBBB',
-  'BttgggggggggggggggggggRggttBBB',
-  'BttttgggggggggggggggggggtttBBB',
-  'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB',
+  'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB',
+  'BttttgggggggggggggggggttttttBBttttttBB',
+  'BtggggggggffffggggggggggggttBBgggtttBB',
+  'BtggggpppppppppppggggwwggggtBBgggggtBB',
+  'BgggpphhhhpppphhhppgggwwggggBBggggggBB',
+  'BgggpphhhhpppphhhppgggwwggggBBggggggBB',
+  'BgggpphhhhpppppppppggwwgggggBBggggggBB',
+  'BgggppppppdpppppggggggggggggBBggggggBB',
+  'BggffffgggdgggffffggggggggggBBggggggBB',
+  'BgggFgggggdgggggggggtttgggggBBttggggBB',
+  'BgggggggppdppppgggggtttgggggBBttggggBB',
+  'Bgggppppppdppppppppppppppppppppppppppp',
+  'BgggppggggdgggggggggggggggFppppppppppp',
+  'BgggppggttdttgggFgggggfffffppppppppppp',
+  'BgggggggttdttggggggggggggggBBBgggtttBB',
+  'BgggggggggdgggwwwwwgggRggggBBBggRRggBB',
+  'BgggFgggggggggwwwwwggRRRgggBBBgRRRggBB',
+  'BttgggggggggggggggggggRggttBBBgggtttBB',
+  'BttttgggggggggggggggggggtttBBBttttttBB',
+  'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB',
 ] as const;
 
 const MAP_WIDTH = TERRAIN[0].length;
@@ -90,9 +90,8 @@ export class AmberleafTownScene extends Phaser.Scene {
       canEnterTile: (tile) => this.canEnterTile(tile),
       onMoveComplete: (tile) => this.handleMoveComplete(tile)
     });
-    configureOverworldCamera(this, { mapWidth: MAP_WIDTH, mapHeight: MAP_HEIGHT, target: this.player.gameObject });
-
     this.follower = FollowerSprite.shouldCreate() ? new FollowerSprite(this, savedStartTile) : undefined;
+    configureOverworldCamera(this, { mapWidth: MAP_WIDTH, mapHeight: MAP_HEIGHT, target: this.player.gameObject });
     this.debugPanel = new DebugPanel(this);
     this.dialogueBox = new DialogueBox(this);
     this.partyMenu = new PartyMenu(this, {
@@ -160,7 +159,7 @@ export class AmberleafTownScene extends Phaser.Scene {
     this.npcTiles.set(this.tileKey(DR_SABLE_TILE), { name: 'Dr. Sable', dialogue: DR_SABLE_DIALOGUE });
     this.registerSign({ x: 6, y: 12 }, 'Amberleaf Town', 'Amberleaf Town research green. The lab is north; Fern Trail leaves from the east road.');
     this.registerSign({ x: 9, y: 6 }, "Dr. Sable's Lab", 'Field research lab. Please wipe mud off your boots before stepping inside.');
-    this.registerSign({ x: 27, y: 12 }, 'Fern Trail', 'Fern Trail east: ferns, fossil brush, and the path toward Mossbank Wetlands.');
+    this.registerSign({ x: 34, y: 12 }, 'Fern Trail', 'Fern Trail east: ferns, fossil brush, and the path toward Mossbank Wetlands.');
     [{ x: 7, y: 10 }, { x: 18, y: 13 }, { x: 22, y: 10 }, { x: 25, y: 14 }].forEach(({ x, y }) => this.drawRock(x, y));
     [{ x: 16, y: 11 }, { x: 21, y: 12 }].forEach(({ x, y }) => this.drawCrate(x, y));
   }

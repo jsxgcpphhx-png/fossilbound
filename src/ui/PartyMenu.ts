@@ -13,6 +13,7 @@ import {
   type TravelTeamSlotId
 } from '../data/playerState';
 import type { TilePosition } from '../types/grid';
+import { registerFixedUiObject } from '../systems/OverworldCamera';
 import { drawUiPanel, panelTextStyle, truncateText, UI_COLORS, UI_HEX } from './theme';
 
 interface PartyMenuOptions {
@@ -43,21 +44,21 @@ export class PartyMenu {
     this.options = options;
     const backdrop = drawUiPanel(scene, { x: 320, y: 240, width: 590, height: 390, depth: 20, fill: UI_HEX.parchment, stroke: UI_HEX.leaf });
     const inner = drawUiPanel(scene, { x: 320, y: 254, width: 542, height: 288, depth: 20, fill: UI_HEX.parchmentDark, stroke: UI_HEX.amber, alpha: 0.72 });
-    this.titleText = scene.add.text(48, 54, 'Travel Team', panelTextStyle({
+    this.titleText = registerFixedUiObject(scene, scene.add.text(48, 54, 'Travel Team', panelTextStyle({
       color: UI_COLORS.leaf,
       fontSize: '26px',
       fontStyle: 'bold'
-    })).setDepth(21).setScrollFactor(0);
-    this.bodyText = scene.add.text(48, 94, '', panelTextStyle({
+    })).setDepth(21).setScrollFactor(0));
+    this.bodyText = registerFixedUiObject(scene, scene.add.text(48, 94, '', panelTextStyle({
       color: UI_COLORS.ink,
       fontSize: '12px',
       lineSpacing: 3,
       wordWrap: { width: 524, useAdvancedWrap: true }
-    })).setDepth(21).setScrollFactor(0);
-    this.promptText = scene.add.text(48, 420, '↑/↓ select · ←/→ swap · Q Island Base · P/Esc close', panelTextStyle({
+    })).setDepth(21).setScrollFactor(0));
+    this.promptText = registerFixedUiObject(scene, scene.add.text(48, 420, '↑/↓ select · ←/→ swap · Q Island Base · P/Esc close', panelTextStyle({
       color: UI_COLORS.moss,
       fontSize: '13px'
-    })).setDepth(21).setScrollFactor(0);
+    })).setDepth(21).setScrollFactor(0));
 
     this.group = scene.add.group([backdrop, inner, this.titleText, this.bodyText, this.promptText]);
     this.registerControls();
