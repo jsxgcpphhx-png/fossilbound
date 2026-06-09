@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { registerFixedUiObject } from '../systems/OverworldCamera';
 import { drawUiPanel, panelTextStyle, UI_COLORS, UI_HEX } from './theme';
 
 interface DialoguePage {
@@ -56,26 +57,26 @@ export class DialogueBox {
     const top = this.options.y - this.options.height / 2 + 16;
 
     this.box = drawUiPanel(scene, { x: this.options.x, y: this.options.y, width: this.options.width, height: this.options.height, depth: this.options.depth, fill: UI_HEX.parchment, stroke: UI_HEX.leaf, alpha: 1 });
-    this.nameText = scene.add.text(left, top, '', panelTextStyle({
+    this.nameText = registerFixedUiObject(scene, scene.add.text(left, top, '', panelTextStyle({
       color: UI_COLORS.leaf,
       fontSize: `${this.options.fontSize}px`,
       fontStyle: 'bold'
-    })).setDepth(this.options.depth + 1).setScrollFactor(0);
-    this.bodyText = scene.add.text(left, top + 28, '', panelTextStyle({
+    })).setDepth(this.options.depth + 1).setScrollFactor(0));
+    this.bodyText = registerFixedUiObject(scene, scene.add.text(left, top + 28, '', panelTextStyle({
       color: UI_COLORS.ink,
       fontSize: `${this.options.fontSize}px`,
       lineSpacing: 6,
       wordWrap: { width: this.options.bodyWidth, useAdvancedWrap: true }
-    })).setDepth(this.options.depth + 1).setScrollFactor(0);
-    this.promptText = scene.add.text(left, top + this.options.height - 34, 'Space/Enter: next · Esc: close', panelTextStyle({
+    })).setDepth(this.options.depth + 1).setScrollFactor(0));
+    this.promptText = registerFixedUiObject(scene, scene.add.text(left, top + this.options.height - 34, 'Space/Enter: next · Esc: close', panelTextStyle({
       color: UI_COLORS.moss,
       fontSize: '12px'
-    })).setDepth(this.options.depth + 1).setScrollFactor(0);
-    this.continueText = scene.add.text(this.options.x + this.options.width / 2 - 48, top + this.options.height - 36, '▼', panelTextStyle({
+    })).setDepth(this.options.depth + 1).setScrollFactor(0));
+    this.continueText = registerFixedUiObject(scene, scene.add.text(this.options.x + this.options.width / 2 - 48, top + this.options.height - 36, '▼', panelTextStyle({
       color: UI_COLORS.amber,
       fontSize: '18px',
       fontStyle: 'bold'
-    })).setDepth(this.options.depth + 1).setScrollFactor(0);
+    })).setDepth(this.options.depth + 1).setScrollFactor(0));
 
     this.group = scene.add.group([this.box, this.nameText, this.bodyText, this.promptText, this.continueText]);
     this.hide();

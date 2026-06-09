@@ -93,12 +93,12 @@ export function createTranquilizerDifficultyProfile(inputs: TranquilizerDifficul
     variationId,
     difficultyTier,
     difficultyScore: Number(difficulty.toFixed(2)),
-    targetRadius: Math.round(29 - difficulty * 15 + weakenedEase * 6 + assist * 10),
-    targetSpeed: Math.round(56 + difficulty * 122 - weakenedEase * 18 - assist * 22),
-    targetAcceleration: Math.round(18 + difficulty * 52),
-    requiredLockOnMs: Math.round(950 + difficulty * 820 - weakenedEase * 220 - assist * 320),
-    roundTimeLimitMs: Math.round(7000 - difficulty * 1700 + weakenedEase * 500 + assist * 650),
-    totalTimeLimitMs: Math.round(22000 - difficulty * 5200 + weakenedEase * 1500 + assist * 1800),
+    targetRadius: safeClamp(Math.round(34 - difficulty * 14 + weakenedEase * 7 + assist * 10), 17, 38),
+    targetSpeed: safeClamp(Math.round(42 + difficulty * 96 - weakenedEase * 20 - assist * 24), 36, 126),
+    targetAcceleration: safeClamp(Math.round(12 + difficulty * 42), 10, 44),
+    requiredLockOnMs: safeClamp(Math.round(850 + difficulty * 620 - weakenedEase * 200 - assist * 280), 680, 1240),
+    roundTimeLimitMs: safeClamp(Math.round(8600 - difficulty * 1300 + weakenedEase * 700 + assist * 700), 7000, 9400),
+    totalTimeLimitMs: safeClamp(Math.round(28600 - difficulty * 3800 + weakenedEase * 1800 + assist * 1900), 23800, 31000),
     requiredRounds: 3,
     obstacleCount: obstaclePatterns.length,
     obstacleRadius: obstaclePatterns[0]?.radius ?? 0,
@@ -145,32 +145,36 @@ function getVariationId(tier: TranquilizerDifficultyTier, difficulty: number): T
 }
 
 function createObstaclePatterns(tier: TranquilizerDifficultyTier, difficulty: number): TranquilizerObstaclePattern[] {
-  const mediumRadius = Math.round(12 + difficulty * 4);
+  const mediumRadius = Math.round(10 + difficulty * 3);
 
   if (tier === 'Easy') {
-    return difficulty > 0.12 ? [{ kind: 'amber-shard', motion: 'stationary', radius: 12, speed: 0 }] : [];
+    return difficulty > 0.16 ? [{ kind: 'amber-shard', motion: 'stationary', radius: 11, speed: 0 }] : [];
   }
 
   if (tier === 'Medium') {
     return [
       { kind: 'amber-shard', motion: 'stationary', radius: mediumRadius, speed: 0 },
-      { kind: 'thorn-cluster', motion: 'stationary', radius: mediumRadius + 1, speed: 0 }
+      { kind: 'thorn-cluster', motion: 'patrol', radius: mediumRadius + 1, speed: 24 }
     ];
   }
 
   if (tier === 'Hard') {
     return [
       { kind: 'amber-shard', motion: 'stationary', radius: 13, speed: 0 },
-      { kind: 'fossil-splinter', motion: 'drift', radius: 12, speed: 34 },
-      { kind: 'alarm-spark', motion: 'bounce', radius: 10, speed: 48 }
+      { kind: 'fossil-splinter', motion: 'drift', radius: 11, speed: 28 },
+      { kind: 'alarm-spark', motion: 'bounce', radius: 10, speed: 40 }
     ];
   }
 
   return [
-    { kind: 'amber-shard', motion: 'patrol', radius: 12, speed: 44 },
+    { kind: 'amber-shard', motion: 'patrol', radius: 12, speed: 36 },
     { kind: 'thorn-cluster', motion: 'stationary', radius: 13, speed: 0 },
-    { kind: 'fossil-splinter', motion: 'drift', radius: 11, speed: 40 },
-    { kind: 'alarm-spark', motion: 'bounce', radius: 10, speed: 58 },
-    { kind: 'wind-gust', motion: 'patrol', radius: 14, speed: 50 }
+    { kind: 'fossil-splinter', motion: 'drift', radius: 11, speed: 34 },
+    { kind: 'alarm-spark', motion: 'bounce', radius: 10, speed: 50 },
+    { kind: 'wind-gust', motion: 'patrol', radius: 13, speed: 42 }
   ];
+}
+
+function safeClamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
 }

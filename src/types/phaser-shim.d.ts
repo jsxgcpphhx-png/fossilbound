@@ -20,6 +20,18 @@ declare namespace Phaser {
     namespace Cameras {
       namespace Scene2D {
         const Events: { FADE_OUT_COMPLETE: string };
+        interface Camera {
+          setBackgroundColor(color: string): void;
+          setBounds(x: number, y: number, width: number, height: number): void;
+          setZoom(zoom: number): void;
+          setScroll(x: number, y: number): void;
+          setRoundPixels(value: boolean): void;
+          startFollow(target: GameObjects.GameObject, roundPixels?: boolean, lerpX?: number, lerpY?: number): void;
+          fadeIn(duration: number, red?: number, green?: number, blue?: number): void;
+          fadeOut(duration: number, red?: number, green?: number, blue?: number): void;
+          once(eventName: string, callback: () => void): void;
+          ignore(entries: GameObjects.GameObject | GameObjects.GameObject[]): void;
+        }
       }
     }
 
@@ -104,7 +116,8 @@ declare namespace Phaser {
 
     class Scene {
       constructor(sceneConfig?: string | object);
-      cameras: { main: { setBackgroundColor(color: string): void; setBounds(x: number, y: number, width: number, height: number): void; setZoom(zoom: number): void; startFollow(target: GameObjects.GameObject, roundPixels?: boolean, lerpX?: number, lerpY?: number): void; fadeIn(duration: number, red?: number, green?: number, blue?: number): void; fadeOut(duration: number, red?: number, green?: number, blue?: number): void; once(eventName: string, callback: () => void): void } };
+      cameras: { main: Cameras.Scene2D.Camera; add(x: number, y: number, width: number, height: number, makeMain?: boolean, name?: string): Cameras.Scene2D.Camera };
+      children: { list: GameObjects.GameObject[] };
       textures: { createCanvas(key: string, width: number, height: number): CanvasTexture | null };
       add: {
         circle(x: number, y: number, radius: number, color: number, alpha?: number): GameObjects.GameObject;
@@ -124,7 +137,7 @@ declare namespace Phaser {
         };
         once(eventName: string, callback: () => void): void;
       };
-      scene: { start(sceneKey: string, data?: unknown): void };
+      scene: { key: string; start(sceneKey: string, data?: unknown): void };
       tweens: { add(config: Record<string, unknown>): void };
       time: { now: number };
     }

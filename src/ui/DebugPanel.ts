@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import type { TilePosition } from '../types/grid';
+import { registerFixedUiObject } from '../systems/OverworldCamera';
 import { panelTextStyle, UI_COLORS } from './theme';
 
 export class DebugPanel {
@@ -10,14 +11,14 @@ export class DebugPanel {
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
-    this.text = scene.add.text(12, 12, '', panelTextStyle({
+    this.text = registerFixedUiObject(scene, scene.add.text(12, 12, '', panelTextStyle({
       backgroundColor: 'rgba(23, 37, 29, 0.88)',
       color: UI_COLORS.parchment,
       fontSize: '9px',
       lineSpacing: 2,
       padding: { x: 8, y: 6 },
       wordWrap: { width: 176, useAdvancedWrap: true }
-    })).setDepth(100).setScrollFactor(0).setVisible(false);
+    })).setDepth(100).setScrollFactor(0).setVisible(false));
     this.toggleKey = scene.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.T);
   }
 
