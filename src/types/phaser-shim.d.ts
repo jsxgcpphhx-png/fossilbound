@@ -22,6 +22,30 @@ declare namespace Phaser {
       const CENTER_BOTH: number;
     }
 
+    namespace Math {
+      function Between(min: number, max: number): number;
+      function Clamp(value: number, min: number, max: number): number;
+      namespace Distance {
+        function Between(x1: number, y1: number, x2: number, y2: number): number;
+      }
+    }
+
+    namespace Geom {
+      class Rectangle {
+        constructor(x: number, y: number, width: number, height: number);
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+        left: number;
+        right: number;
+        top: number;
+        bottom: number;
+        centerX: number;
+        centerY: number;
+      }
+    }
+
     namespace Input {
       namespace Keyboard {
         const KeyCodes: Record<string, number>;
@@ -40,6 +64,10 @@ declare namespace Phaser {
         setStrokeStyle(width: number, color: number, alpha?: number): this;
         destroy(): void;
         alpha: number;
+        x: number;
+        y: number;
+        setPosition(x: number, y: number): this;
+        setVisible(visible: boolean): this;
       }
 
       interface Sprite extends GameObject {
@@ -53,6 +81,8 @@ declare namespace Phaser {
       interface Shape extends GameObject {}
       interface Text extends GameObject {
         setText(text: string): this;
+        setColor(color: string): this;
+        setBackgroundColor(color: string): this;
       }
       interface Group {
         setVisible(visible: boolean): this;
@@ -88,6 +118,7 @@ declare namespace Phaser {
       };
       scene: { start(sceneKey: string, data?: unknown): void };
       tweens: { add(config: Record<string, unknown>): void };
+      time: { now: number };
     }
 
     class Game {
