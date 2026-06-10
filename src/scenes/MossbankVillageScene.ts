@@ -10,6 +10,7 @@ import { actorDepthMetadata, resolveWorldDepth, updateWorldDepth, worldLayerDept
 import { DebugPanel } from '../ui/DebugPanel';
 import { DialogueBox } from '../ui/DialogueBox';
 import { PartyMenu } from '../ui/PartyMenu';
+import { PackMenu } from '../ui/PackMenu';
 import type { Direction, TilePosition } from '../types/grid';
 
 const START_TILE: TilePosition = { x: 1, y: 12 };
@@ -64,11 +65,13 @@ export class MossbankVillageScene extends Phaser.Scene {
   private debugPanel?: DebugPanel;
   private dialogueBox?: DialogueBox;
   private partyMenu?: PartyMenu;
+  private packMenu?: PackMenu;
   private follower?: FollowerSprite;
   private previousPlayerTile?: TilePosition;
   private movementKeys?: Record<Direction, Phaser.Input.Keyboard.Key[]>;
   private interactKeys?: Phaser.Input.Keyboard.Key[];
   private partyKeys?: Phaser.Input.Keyboard.Key[];
+  private packKeys?: Phaser.Input.Keyboard.Key[];
   private escapeKey?: Phaser.Input.Keyboard.Key;
   private npcTiles = new Map<string, { name: string; dialogue: string }>();
   private signTiles = new Map<string, { title: string; text: string }>();
@@ -104,23 +107,33 @@ export class MossbankVillageScene extends Phaser.Scene {
         fadeToScene(this, 'IslandBaseScene');
       }
     });
+    this.packMenu = new PackMenu(this, { context: 'field' });
     this.registerControls();
     addFixedLocationLabel(this, 'Mossbank Village');
   }
 
   update(): void {
-    if (!this.player || !this.debugPanel || !this.dialogueBox || !this.partyMenu) return;
+    if (!this.player || !this.debugPanel || !this.dialogueBox || !this.partyMenu || !this.packMenu) return;
     this.debugPanel.update(this.player.currentTile);
     this.dialogueBox.update();
     this.partyMenu.update();
-    if (this.isPartyMenuPressed()) { if (this.dialogueBox.isOpen()) this.dialogueBox.hide(); this.partyMenu.toggle(); return; }
-    if (this.isEscapePressed()) { if (this.partyMenu.isOpen()) { this.partyMenu.hide(); return; } if (this.dialogueBox.isOpen()) { this.dialogueBox.hide(); return; } }
+    this.packMenu.update();
+    if (this.isPackMenuPressed()) {
+      if (this.dialogueBox.isOpen()) this.dialogueBox.hide();
+      if (this.partyMenu.isOpen()) this.partyMenu.hide();
+      this.packMenu.toggle();
+      return;
+    }
+
+    if (this.isPartyMenuPressed()) { if (this.dialogueBox.isOpen()) this.dialogueBox.hide(); if (this.packMenu.isOpen()) this.packMenu.hide(); this.partyMenu.toggle(); return; }
+    if (this.isEscapePressed()) { if (this.packMenu.isOpen()) { this.packMenu.hide(); return; }
+      if (this.partyMenu.isOpen()) { this.partyMenu.hide(); return; } if (this.dialogueBox.isOpen()) { this.dialogueBox.hide(); return; } }
     if (this.isInteractPressed()) {
       if (this.dialogueBox.isOpen()) this.dialogueBox.advance();
       else if (!this.tryReadSign() && !this.tryTalkToNpc()) this.dialogueBox.show('Mossbank', 'Marsh paths and boardwalks connect the whole wetland village. Signs mark landmarks without floating labels.');
       return;
     }
-    if (this.dialogueBox.isOpen() || this.partyMenu.isOpen() || this.player.isMoving()) return;
+    if (this.dialogueBox.isOpen() || this.partyMenu.isOpen() || this.packMenu.isOpen() || this.player.isMoving()) return;
     const direction = this.getPressedDirection();
     if (direction) { this.previousPlayerTile = this.player.currentTile; this.player.tryMove(direction); }
   }
@@ -235,10 +248,12 @@ export class MossbankVillageScene extends Phaser.Scene {
     this.movementKeys = { up: [keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.UP), keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W)], down: [keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.DOWN), keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S)], left: [keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.LEFT), keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A)], right: [keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.RIGHT), keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D)] };
     this.interactKeys = [keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE), keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E), keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER)];
     this.partyKeys = [keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.P)];
+    this.packKeys = [keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.I), keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.B)];
     this.escapeKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
   }
   private getPressedDirection(): Direction | undefined { const keyboard = this.input.keyboard; if (!keyboard || !this.movementKeys) return undefined; return (['up', 'down', 'left', 'right'] as Direction[]).find((direction) => this.movementKeys?.[direction].some((key) => keyboard.checkDown(key, 110))); }
   private isInteractPressed(): boolean { return this.interactKeys?.some((key) => Phaser.Input.Keyboard.JustDown(key)) ?? false; }
+  private isPackMenuPressed(): boolean { return this.packKeys?.some((key) => Phaser.Input.Keyboard.JustDown(key)) ?? false; }
   private isPartyMenuPressed(): boolean { return this.partyKeys?.some((key) => Phaser.Input.Keyboard.JustDown(key)) ?? false; }
   private isEscapePressed(): boolean { return this.escapeKey ? Phaser.Input.Keyboard.JustDown(this.escapeKey) : false; }
   private tryReadSign(): boolean { if (!this.player || !this.dialogueBox) return false; const sign = this.signTiles.get(this.tileKey(this.player.getFacingTile())); if (!sign) return false; this.dialogueBox.show(sign.title, sign.text); return true; }

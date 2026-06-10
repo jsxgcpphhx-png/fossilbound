@@ -15,7 +15,7 @@ import { TEMPORARY_MOVE_LIKE_ENTRIES } from '../data/battle/temporaryMoveLikeEnt
 import { EARLY_GAME_DINOSAURS, type DinosaurDefinition } from '../data/dinosaurs';
 import { TRANQUILIZER_SEQUENCE_VARIATIONS, createTranquilizerDifficultyProfile, getTranquilizerUpgrade, type TranquilizerDifficultyProfile, type TranquilizerObstacleKind, type TranquilizerObstacleMotion } from '../data/tranquilizer';
 import type { EncounterPreview } from '../data/encounters';
-import { getInventoryCategoryLabel, getInventoryEntries, type InventoryEntry } from '../data/inventory';
+import { getInventoryCategoryLabel, getInventoryEntries, useInventoryItem, type InventoryEntry } from '../data/inventory';
 import { addTemporaryDebugCreatureToParty, getCreatureByInstanceId, getKnownDinosaurName, loadPlayerState, updatePlayerPosition } from '../data/playerState';
 import type { TilePosition } from '../types/grid';
 import { paginateText, panelTextStyle, truncateText, UI_COLORS, UI_HEX } from '../ui/theme';
@@ -108,8 +108,8 @@ export class BattleScene extends Phaser.Scene {
   private activeMessagePageIndex = 0;
   private actionPhase?: ActionPhaseState;
   private tranquilizerPhase?: TranquilizerPhaseState;
-  private menuKeys?: Phaser.Input.Keyboard.Key[];
-  private actionKeys?: Phaser.Input.Keyboard.Key[];
+  private menuKeys?: { up: Phaser.Input.Keyboard.Key[]; down: Phaser.Input.Keyboard.Key[] };
+  private actionKeys?: { confirm: Phaser.Input.Keyboard.Key[]; flee: Phaser.Input.Keyboard.Key[]; back: Phaser.Input.Keyboard.Key[]; observe: Phaser.Input.Keyboard.Key[]; actions: Phaser.Input.Keyboard.Key[]; pack: Phaser.Input.Keyboard.Key[] };
   private phaseKeys?: Record<'left' | 'right' | 'up' | 'down', Phaser.Input.Keyboard.Key[]>;
 
   constructor() {
@@ -169,35 +169,35 @@ export class BattleScene extends Phaser.Scene {
       return;
     }
 
-    if (Phaser.Input.Keyboard.JustDown(this.menuKeys[0]) || Phaser.Input.Keyboard.JustDown(this.menuKeys[2])) {
+    if (this.wasPressed(this.menuKeys.up)) {
       this.changeSelection(-1);
     }
 
-    if (Phaser.Input.Keyboard.JustDown(this.menuKeys[1]) || Phaser.Input.Keyboard.JustDown(this.menuKeys[3])) {
+    if (this.wasPressed(this.menuKeys.down)) {
       this.changeSelection(1);
     }
 
-    if (Phaser.Input.Keyboard.JustDown(this.actionKeys[0]) || Phaser.Input.Keyboard.JustDown(this.actionKeys[6])) {
+    if (this.wasPressed(this.actionKeys.confirm)) {
       this.confirmOrAdvanceMessage();
     }
 
-    if (Phaser.Input.Keyboard.JustDown(this.actionKeys[1])) {
+    if (this.wasPressed(this.actionKeys.flee)) {
       this.flee();
     }
 
-    if (Phaser.Input.Keyboard.JustDown(this.actionKeys[2])) {
+    if (this.wasPressed(this.actionKeys.back)) {
       this.backOrFlee();
     }
 
-    if (Phaser.Input.Keyboard.JustDown(this.actionKeys[3])) {
+    if (this.wasPressed(this.actionKeys.observe)) {
       this.openObservePanel();
     }
 
-    if (Phaser.Input.Keyboard.JustDown(this.actionKeys[4])) {
+    if (this.wasPressed(this.actionKeys.actions)) {
       this.openActionsPanel();
     }
 
-    if (Phaser.Input.Keyboard.JustDown(this.actionKeys[5])) {
+    if (this.wasPressed(this.actionKeys.pack)) {
       this.openFieldPackPanel();
     }
   }
@@ -411,21 +411,18 @@ export class BattleScene extends Phaser.Scene {
   }
 
   private registerControls(): void {
-    this.menuKeys = [
-      this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.UP),
-      this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.DOWN),
-      this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.LEFT),
-      this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.RIGHT)
-    ];
-    this.actionKeys = [
-      this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER),
-      this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.F),
-      this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.ESC),
-      this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.O),
-      this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.A),
-      this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.P),
-      this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE)
-    ];
+    this.menuKeys = {
+      up: [this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.UP), this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.W), this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.LEFT)],
+      down: [this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.DOWN), this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.S), this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.RIGHT)]
+    };
+    this.actionKeys = {
+      confirm: [this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER), this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE)],
+      flee: [this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.F)],
+      back: [this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.ESC), this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.BACKSPACE)],
+      observe: [this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.O)],
+      actions: [this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.A)],
+      pack: [this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.P), this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.I), this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.B)]
+    };
     this.phaseKeys = {
       left: [this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.LEFT), this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.A)],
       right: [this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.RIGHT), this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.D)],
@@ -446,6 +443,12 @@ export class BattleScene extends Phaser.Scene {
       selectedIndex: (this.menuState.selectedIndex + delta + optionCount) % optionCount
     };
     this.updateMenuLabels();
+  }
+
+
+
+  private wasPressed(keys: Phaser.Input.Keyboard.Key[]): boolean {
+    return keys.some((key) => Phaser.Input.Keyboard.JustDown(key));
   }
 
   private updateMenuLabels(): void {
@@ -586,8 +589,11 @@ export class BattleScene extends Phaser.Scene {
 
     this.menuState = { mode: 'field-pack', selectedIndex: 0 };
     this.drawPanel(TEMPORARY_BATTLE_CONFIG.fieldPackTitle, [
-      ...fieldPackEntries.map((entry) => `${getInventoryCategoryLabel(entry.category)} · ${entry.displayName} x${entry.quantity}`),
-      'DEV SCAFFOLD ONLY · Tranq Sequence is the temporary capture mode.',
+      ...(fieldPackEntries.length > 0
+        ? fieldPackEntries.map((entry) => `${getInventoryCategoryLabel(entry.category)} · ${entry.displayName} x${entry.quantity}`)
+        : ['No Field Pack items are currently available.']),
+      'Use arrows/WASD to choose; Enter/Space inspect/use; Esc/Backspace returns to battle menu.',
+      'DEV SCAFFOLD ONLY · Tranq Sequence is the temporary capture mode.'
     ]);
     this.queueMessages(TEMPORARY_BATTLE_CONFIG.fieldPackLines);
     this.updateMenuLabels();
@@ -630,6 +636,12 @@ export class BattleScene extends Phaser.Scene {
 
   private useTemporaryFieldPackItem(item: InventoryEntry): void {
     const wildCreature = this.participants?.wild.creature;
+    const result = useInventoryItem(item.id, 'battle', loadPlayerState().inventory);
+
+    if (!result.used) {
+      this.drawTemporaryItemMessage(item, result.message);
+      return;
+    }
 
     switch (item.temporaryEffectType) {
       case 'temporary-survey-notes':
@@ -639,7 +651,7 @@ export class BattleScene extends Phaser.Scene {
           wildCreature?.description ?? 'Additional creature notes are not available for this placeholder encounter.',
           wildCreature?.artNotes ? `Additional notes: ${wildCreature.artNotes}` : 'Additional creature notes are not available yet.'
         ]);
-        this.queueMessages(['Survey Lens displayed additional creature notes if available.']);
+        this.queueMessages(['Survey Lens displayed additional creature notes if available.', 'Returned to Field Pack selection; press Esc/Backspace for the battle menu.']);
         return;
       case 'temporary-healing-placeholder':
         this.drawTemporaryItemMessage(item, 'Healing is not implemented yet');

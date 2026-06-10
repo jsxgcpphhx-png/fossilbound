@@ -8,6 +8,7 @@ import { DebugPanel } from '../ui/DebugPanel';
 import { DialogueBox } from '../ui/DialogueBox';
 import { CreatureSelectionPanel } from '../ui/CreatureSelectionPanel';
 import { PartyMenu } from '../ui/PartyMenu';
+import { PackMenu } from '../ui/PackMenu';
 import type { Direction, TilePosition } from '../types/grid';
 
 const MAP_WIDTH = GAME_WIDTH / TILE_SIZE;
@@ -41,10 +42,12 @@ export class LabScene extends Phaser.Scene {
   private debugPanel?: DebugPanel;
   private dialogueBox?: DialogueBox;
   private partyMenu?: PartyMenu;
+  private packMenu?: PackMenu;
   private selectionPanel?: CreatureSelectionPanel;
   private movementKeys?: Record<Direction, Phaser.Input.Keyboard.Key[]>;
   private interactKeys?: Phaser.Input.Keyboard.Key[];
   private partyKeys?: Phaser.Input.Keyboard.Key[];
+  private packKeys?: Phaser.Input.Keyboard.Key[];
   private escapeKey?: Phaser.Input.Keyboard.Key;
   private npcTiles = new Map<string, { name: string; dialogue: string }>();
 
@@ -89,21 +92,30 @@ export class LabScene extends Phaser.Scene {
         this.dialogueBox?.show('Lab Terminal', `${creature.displayName} was saved to your placeholder party data.`);
       }
     });
+    this.packMenu = new PackMenu(this, { context: 'field' });
     this.registerControls();
     this.addLocationLabel();
   }
 
   update(): void {
-    if (!this.player || !this.debugPanel || !this.dialogueBox || !this.partyMenu || !this.selectionPanel) {
+    if (!this.player || !this.debugPanel || !this.dialogueBox || !this.partyMenu || !this.packMenu || !this.selectionPanel) {
       return;
     }
 
     this.debugPanel.update(this.player.currentTile);
     this.dialogueBox.update();
     this.partyMenu.update();
+    this.packMenu.update();
 
     if (this.selectionPanel.isOpen()) {
       this.handleSelectionControls();
+      return;
+    }
+
+    if (this.isPackMenuPressed()) {
+      if (this.dialogueBox.isOpen()) this.dialogueBox.hide();
+      if (this.partyMenu.isOpen()) this.partyMenu.hide();
+      this.packMenu.toggle();
       return;
     }
 
@@ -111,11 +123,19 @@ export class LabScene extends Phaser.Scene {
       if (this.dialogueBox.isOpen()) {
         this.dialogueBox.hide();
       }
+      if (this.packMenu.isOpen()) {
+        this.packMenu.hide();
+      }
       this.partyMenu.toggle();
       return;
     }
 
     if (this.isEscapePressed()) {
+      if (this.packMenu.isOpen()) {
+        this.packMenu.hide();
+        return;
+      }
+
       if (this.partyMenu.isOpen()) {
         this.partyMenu.hide();
         return;
@@ -136,7 +156,7 @@ export class LabScene extends Phaser.Scene {
       return;
     }
 
-    if (this.dialogueBox.isOpen() || this.partyMenu.isOpen() || this.player.isMoving()) {
+    if (this.dialogueBox.isOpen() || this.partyMenu.isOpen() || this.packMenu.isOpen() || this.player.isMoving()) {
       return;
     }
 
@@ -262,6 +282,7 @@ export class LabScene extends Phaser.Scene {
       keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER)
     ];
     this.partyKeys = [keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.P)];
+    this.packKeys = [keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.I), keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.B)];
     this.escapeKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
   }
 
@@ -307,6 +328,7 @@ export class LabScene extends Phaser.Scene {
     return this.interactKeys?.some((key) => Phaser.Input.Keyboard.JustDown(key)) ?? false;
   }
 
+  private isPackMenuPressed(): boolean { return this.packKeys?.some((key) => Phaser.Input.Keyboard.JustDown(key)) ?? false; }
   private isPartyMenuPressed(): boolean {
     return this.partyKeys?.some((key) => Phaser.Input.Keyboard.JustDown(key)) ?? false;
   }

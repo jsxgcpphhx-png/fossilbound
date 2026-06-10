@@ -14,6 +14,8 @@ export interface InventoryItemDefinition {
   description: string;
   temporaryEffectType: InventoryEffectType;
   usableContexts: InventoryUsableContext[];
+  /** Placeholder scaffold: no current item consumes quantity until final balance/economy exists. */
+  consumesOnUse?: boolean;
 }
 
 export interface InventoryEntry extends InventoryItemDefinition {
@@ -67,6 +69,14 @@ export const TEMPORARY_ITEM_DEFINITIONS: InventoryItemDefinition[] = [
     description: 'A prototype key item representing lab access. It has no finalized gates or quest logic.',
     temporaryEffectType: 'temporary-key-item-placeholder',
     usableContexts: ['key-item', 'menu']
+  },
+  {
+    id: 'tranq-dart-prototype',
+    displayName: 'Tranq Dart Prototype',
+    category: 'capture-tool',
+    description: 'A lab-safe placeholder for future tranquilizer supplies. The current capture prototype does not spend darts.',
+    temporaryEffectType: 'temporary-creature-acquisition',
+    usableContexts: ['battle']
   }
 ];
 
@@ -75,7 +85,8 @@ export const STARTING_INVENTORY: InventoryQuantities = {
   'survey-lens': 1,
   'basic-med-kit': 2,
   'trail-snack': 2,
-  'lab-pass': 1
+  'lab-pass': 1,
+  'tranq-dart-prototype': 1
 };
 
 export function getInventoryEntries(inventory: InventoryQuantities): InventoryEntry[] {
@@ -124,4 +135,81 @@ export function normalizeInventory(candidate: unknown, fallback: InventoryQuanti
   });
 
   return normalized;
+}
+
+
+export interface InventoryUseResult {
+  item?: InventoryEntry;
+  used: boolean;
+  consumed: boolean;
+  message: string;
+  inventory: InventoryQuantities;
+}
+
+export function getInventoryUseMessage(item: InventoryEntry, context: InventoryUsableContext): string {
+  if (item.quantity <= 0 && item.category !== 'key-item') {
+    return 'No quantity remains.';
+  }
+
+  if (!isItemUsableInContext(item, context)) {
+    return context === 'battle' ? 'This cannot be used here.' : 'This is not usable from here.';
+  }
+
+  switch (item.temporaryEffectType) {
+    case 'temporary-survey-notes':
+      return 'Displays placeholder research notes when available.';
+    case 'temporary-healing-placeholder':
+      return 'Healing is not implemented yet.';
+    case 'temporary-field-recovery-placeholder':
+      return 'Field recovery is not implemented yet.';
+    case 'temporary-key-item-placeholder':
+      return 'This key item has no active use here yet.';
+    case 'temporary-creature-acquisition':
+      return item.id === 'tranq-dart-prototype'
+        ? 'Tranq economy is placeholder; use Capture/Tranq Sequence to test capture.'
+        : 'Creature acquisition rules are not finalized yet.';
+  }
+}
+
+export function isItemUsableInContext(item: InventoryItemDefinition, context: InventoryUsableContext): boolean {
+  if (item.category === 'key-item') {
+    return item.usableContexts.includes(context) || item.usableContexts.includes('key-item');
+  }
+
+  return item.usableContexts.includes(context) || item.usableContexts.includes('menu');
+}
+
+export function useInventoryItem(itemId: string, context: InventoryUsableContext, inventory: InventoryQuantities = normalizeInventory(undefined, STARTING_INVENTORY)): InventoryUseResult {
+  const normalizedInventory = normalizeInventory(inventory, STARTING_INVENTORY);
+  const definition = getInventoryItemDefinition(itemId);
+
+  if (!definition) {
+    return { used: false, consumed: false, message: 'Unknown Field Pack item.', inventory: normalizedInventory };
+  }
+
+  const item: InventoryEntry = {
+    ...definition,
+    quantity: Math.max(0, Math.floor(normalizedInventory[itemId] ?? 0))
+  };
+
+  if (item.quantity <= 0 && item.category !== 'key-item') {
+    return { item, used: false, consumed: false, message: 'No quantity remains.', inventory: normalizedInventory };
+  }
+
+  const message = getInventoryUseMessage(item, context);
+  if (!isItemUsableInContext(item, context)) {
+    return { item, used: false, consumed: false, message, inventory: normalizedInventory };
+  }
+
+  if (!item.consumesOnUse) {
+    return { item, used: true, consumed: false, message, inventory: normalizedInventory };
+  }
+
+  return {
+    item: { ...item, quantity: item.quantity - 1 },
+    used: true,
+    consumed: true,
+    message,
+    inventory: { ...normalizedInventory, [itemId]: Math.max(0, item.quantity - 1) }
+  };
 }
