@@ -22,6 +22,7 @@ Fossilbound is a browser-based prehistoric creature RPG prototype inspired by cl
 ## Current Prototype Notes
 
 - Milestone 6 adds a data-driven Field Pack inventory scaffold with temporary Field Tag, Survey Lens, Basic Med Kit, Trail Snack, and Lab Pass items.
+- Milestone 18 repairs Pack / Field Pack menu flow with fixed screen-space overworld UI, battle Field Pack back/confirm handling, save-safe inventory normalization, and placeholder Tranq Dart Prototype data.
 - Inventory quantities are stored in `PlayerState` and persist through browser `localStorage` save/load.
 - Field Pack item behavior is placeholder-only; final capture/acquisition rules, item balance, economy, healing, field recovery, and progression are intentionally not implemented yet.
 - A developer-only Debug Add Creature action exists only as temporary acquisition scaffolding for testing party persistence.

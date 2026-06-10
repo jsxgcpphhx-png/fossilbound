@@ -12,6 +12,7 @@ import { worldLayerDepth } from '../systems/WorldDepth';
 import { DebugPanel } from '../ui/DebugPanel';
 import { DialogueBox } from '../ui/DialogueBox';
 import { PartyMenu } from '../ui/PartyMenu';
+import { PackMenu } from '../ui/PackMenu';
 import type { Direction, TilePosition } from '../types/grid';
 
 const START_TILE: TilePosition = { x: 1, y: 12 };
@@ -51,12 +52,14 @@ export class FernTrailScene extends Phaser.Scene {
   private debugPanel?: DebugPanel;
   private dialogueBox?: DialogueBox;
   private partyMenu?: PartyMenu;
+  private packMenu?: PackMenu;
   private follower?: FollowerSprite;
   private previousPlayerTile?: TilePosition;
   private encounterZones?: EncounterZoneSystem;
   private movementKeys?: Record<Direction, Phaser.Input.Keyboard.Key[]>;
   private interactKeys?: Phaser.Input.Keyboard.Key[];
   private partyKeys?: Phaser.Input.Keyboard.Key[];
+  private packKeys?: Phaser.Input.Keyboard.Key[];
   private escapeKey?: Phaser.Input.Keyboard.Key;
   private signTiles = new Map<string, { title: string; text: string }>();
 
@@ -107,23 +110,33 @@ export class FernTrailScene extends Phaser.Scene {
         fadeToScene(this, 'IslandBaseScene');
       }
     });
+    this.packMenu = new PackMenu(this, { context: 'field' });
     this.registerControls();
     addFixedLocationLabel(this, 'Fern Trail');
   }
 
   update(): void {
-    if (!this.player || !this.debugPanel || !this.dialogueBox || !this.partyMenu) return;
+    if (!this.player || !this.debugPanel || !this.dialogueBox || !this.partyMenu || !this.packMenu) return;
     this.debugPanel.update(this.player.currentTile);
     this.dialogueBox.update();
     this.partyMenu.update();
-    if (this.isPartyMenuPressed()) { if (this.dialogueBox.isOpen()) this.dialogueBox.hide(); this.partyMenu.toggle(); return; }
-    if (this.isEscapePressed()) { if (this.partyMenu.isOpen()) { this.partyMenu.hide(); return; } if (this.dialogueBox.isOpen()) { this.dialogueBox.hide(); return; } }
+    this.packMenu.update();
+    if (this.isPackMenuPressed()) {
+      if (this.dialogueBox.isOpen()) this.dialogueBox.hide();
+      if (this.partyMenu.isOpen()) this.partyMenu.hide();
+      this.packMenu.toggle();
+      return;
+    }
+
+    if (this.isPartyMenuPressed()) { if (this.dialogueBox.isOpen()) this.dialogueBox.hide(); if (this.packMenu.isOpen()) this.packMenu.hide(); this.partyMenu.toggle(); return; }
+    if (this.isEscapePressed()) { if (this.packMenu.isOpen()) { this.packMenu.hide(); return; }
+      if (this.partyMenu.isOpen()) { this.partyMenu.hide(); return; } if (this.dialogueBox.isOpen()) { this.dialogueBox.hide(); return; } }
     if (this.isInteractPressed()) {
       if (this.dialogueBox.isOpen()) this.dialogueBox.advance();
       else if (!this.tryReadSign()) this.dialogueBox.show('Fern Trail', 'The road bends from Amberleaf grassland into wetter fern beds. Encounter, battle, and capture values remain temporary scaffolding.');
       return;
     }
-    if (this.dialogueBox.isOpen() || this.partyMenu.isOpen() || this.player.isMoving()) return;
+    if (this.dialogueBox.isOpen() || this.partyMenu.isOpen() || this.packMenu.isOpen() || this.player.isMoving()) return;
     const direction = this.getPressedDirection();
     if (direction) { this.previousPlayerTile = this.player.currentTile; this.player.tryMove(direction); }
   }
@@ -197,6 +210,7 @@ export class FernTrailScene extends Phaser.Scene {
     };
     this.interactKeys = [keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE), keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E), keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER)];
     this.partyKeys = [keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.P)];
+    this.packKeys = [keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.I), keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.B)];
     this.escapeKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
   }
   private getPressedDirection(): Direction | undefined {
@@ -204,6 +218,7 @@ export class FernTrailScene extends Phaser.Scene {
     return (['up', 'down', 'left', 'right'] as Direction[]).find((direction) => this.movementKeys?.[direction].some((key) => keyboard.checkDown(key, 110)));
   }
   private isInteractPressed(): boolean { return this.interactKeys?.some((key) => Phaser.Input.Keyboard.JustDown(key)) ?? false; }
+  private isPackMenuPressed(): boolean { return this.packKeys?.some((key) => Phaser.Input.Keyboard.JustDown(key)) ?? false; }
   private isPartyMenuPressed(): boolean { return this.partyKeys?.some((key) => Phaser.Input.Keyboard.JustDown(key)) ?? false; }
   private isEscapePressed(): boolean { return this.escapeKey ? Phaser.Input.Keyboard.JustDown(this.escapeKey) : false; }
   private tryReadSign(): boolean { if (!this.player || !this.dialogueBox) return false; const sign = this.signTiles.get(this.tileKey(this.player.getFacingTile())); if (!sign) return false; this.dialogueBox.show(sign.title, sign.text); return true; }

@@ -15,6 +15,7 @@ import { actorDepthMetadata, updateWorldDepth, worldLayerDepth } from '../system
 import { DebugPanel } from '../ui/DebugPanel';
 import { DialogueBox } from '../ui/DialogueBox';
 import { PartyMenu } from '../ui/PartyMenu';
+import { PackMenu } from '../ui/PackMenu';
 import type { Direction, TilePosition } from '../types/grid';
 
 const START_TILE: TilePosition = { x: 13, y: 12 };
@@ -57,11 +58,13 @@ export class AmberleafTownScene extends Phaser.Scene {
   private debugPanel?: DebugPanel;
   private dialogueBox?: DialogueBox;
   private partyMenu?: PartyMenu;
+  private packMenu?: PackMenu;
   private follower?: FollowerSprite;
   private previousPlayerTile?: TilePosition;
   private movementKeys?: Record<Direction, Phaser.Input.Keyboard.Key[]>;
   private interactKeys?: Phaser.Input.Keyboard.Key[];
   private partyKeys?: Phaser.Input.Keyboard.Key[];
+  private packKeys?: Phaser.Input.Keyboard.Key[];
   private escapeKey?: Phaser.Input.Keyboard.Key;
   private npcTiles = new Map<string, { name: string; dialogue: string }>();
   private signTiles = new Map<string, { title: string; text: string }>();
@@ -106,22 +109,33 @@ export class AmberleafTownScene extends Phaser.Scene {
         fadeToScene(this, 'IslandBaseScene');
       }
     });
+    this.packMenu = new PackMenu(this, { context: 'field' });
     this.registerControls();
     addFixedLocationLabel(this, 'Amberleaf Town');
   }
 
   update(): void {
-    if (!this.player || !this.debugPanel || !this.dialogueBox || !this.partyMenu) return;
+    if (!this.player || !this.debugPanel || !this.dialogueBox || !this.partyMenu || !this.packMenu) return;
     this.debugPanel.update(this.player.currentTile);
     this.dialogueBox.update();
     this.partyMenu.update();
+    this.packMenu.update();
+
+    if (this.isPackMenuPressed()) {
+      if (this.dialogueBox.isOpen()) this.dialogueBox.hide();
+      if (this.partyMenu.isOpen()) this.partyMenu.hide();
+      this.packMenu.toggle();
+      return;
+    }
 
     if (this.isPartyMenuPressed()) {
       if (this.dialogueBox.isOpen()) this.dialogueBox.hide();
+      if (this.packMenu.isOpen()) this.packMenu.hide();
       this.partyMenu.toggle();
       return;
     }
     if (this.isEscapePressed()) {
+      if (this.packMenu.isOpen()) { this.packMenu.hide(); return; }
       if (this.partyMenu.isOpen()) { this.partyMenu.hide(); return; }
       if (this.dialogueBox.isOpen()) { this.dialogueBox.hide(); return; }
     }
@@ -130,7 +144,7 @@ export class AmberleafTownScene extends Phaser.Scene {
       else if (!this.tryReadSign()) this.tryTalkToNpc();
       return;
     }
-    if (this.dialogueBox.isOpen() || this.partyMenu.isOpen() || this.player.isMoving()) return;
+    if (this.dialogueBox.isOpen() || this.partyMenu.isOpen() || this.packMenu.isOpen() || this.player.isMoving()) return;
     const direction = this.getPressedDirection();
     if (direction) {
       this.previousPlayerTile = this.player.currentTile;
@@ -227,6 +241,7 @@ export class AmberleafTownScene extends Phaser.Scene {
     };
     this.interactKeys = [keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE), keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E), keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER)];
     this.partyKeys = [keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.P)];
+    this.packKeys = [keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.I), keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.B)];
     this.escapeKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
   }
 
@@ -238,6 +253,7 @@ export class AmberleafTownScene extends Phaser.Scene {
   }
 
   private isInteractPressed(): boolean { return this.interactKeys?.some((key) => Phaser.Input.Keyboard.JustDown(key)) ?? false; }
+  private isPackMenuPressed(): boolean { return this.packKeys?.some((key) => Phaser.Input.Keyboard.JustDown(key)) ?? false; }
   private isPartyMenuPressed(): boolean { return this.partyKeys?.some((key) => Phaser.Input.Keyboard.JustDown(key)) ?? false; }
   private isEscapePressed(): boolean { return this.escapeKey ? Phaser.Input.Keyboard.JustDown(this.escapeKey) : false; }
 
